@@ -1,0 +1,134 @@
+// Schéma de données — voir SPEC.md §5.
+//
+// Deux invariants à ne pas casser :
+//  1. Les créneaux ne sont PAS persistés. Ils sont dérivés de Calendar
+//     (horaires, durée, pauses, jours fériés). Il n'y a pas de table Slot.
+//  2. Availability ne contient QUE des exceptions. Un créneau sans ligne vaut
+//     AVAILABLE. Repasser à « disponible » supprime la ligne.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 : l'URL de connexion ne vit plus ici. Migrate la lit dans
+// prisma.config.ts, et PrismaClient la reçoit via un adapter.
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ResourceType {
+  PERSON
+  LOCAL
+  EQUIPMENT
+}
+
+enum AvailabilityStatus {
+  AVAILABLE // jamais écrit en base — voir SPEC §7
+  UNAVAILABLE
+  IF_NEEDED
+}
+
+model User {
+  id   String @id @default(cuid())
+  role Role   @default(USER) // découle du provider de connexion
+
+  // Voie Google (personnel HE2B)
+  email String? @unique
+
+  // Voie identifiant / mot de passe (admin, créé par seed)
+  username     String? @unique
+  passwordHash String?
+
+  name      String?
+  createdAt DateTime @default(now())
+
+  // Un ADMIN n'a pas de fiche : c'est ce qui l'empêche de saisir « ses » dispos.
+  resource             Resource?
+  editedAvailabilities Availability[] @relation("EditedBy")
+}
+
+model Calendar {
+  id String @id @default(cuid())
+
+  // Configuration saisie par l'admin — source de vérité unique de la grille
+  name         String
+  startDate    DateTime @db.Date
+  endDate      DateTime @db.Date // 15 semaines maximum — voir SPEC §6
+  weekDays     String[] // ["monday", "tuesday", ...]
+  dayStart     String // "08:00"
+  dayEnd       String // "18:00"
+  slotDuration Int // en minutes
+
+  publishedAt DateTime? // null = brouillon, invisible des USER
+  createdAt   DateTime  @default(now())
+
+  breaks         Break[]
+  holidays       Holiday[]
+  availabilities Availability[]
+}
+
+model Break {
+  id String @id @default(cuid())
+
+  calendarId String
+  calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  name  String // "Pause déjeuner"
+  start String // "12:00"
+  end   String // "14:00"
+
+  @@unique([calendarId, start])
+}
+
+model Holiday {
+  id String @id @default(cuid())
+
+  calendarId String
+  calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  date  DateTime @db.Date
+  label String? // "Congé d'automne", "Armistice"
+
+  @@unique([calendarId, date])
+}
+
+model Resource {
+  id   String       @id @default(cuid())
+  type ResourceType
+  name String
+
+  ownerId String? @unique // rempli uniquement pour une PERSON
+  owner   User?   @relation(fields: [ownerId], references: [id])
+
+  availabilities Availability[]
+
+  @@unique([type, name]) // upsert à l'import XLS, évite les doublons
+}
+
+model Availability {
+  id String @id @default(cuid())
+
+  calendarId String
+  calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  date  DateTime @db.Date // le jour concerné
+  start String // "08:00" — la tranche, interprétée via slotDuration
+
+  status  AvailabilityStatus // UNAVAILABLE ou IF_NEEDED uniquement
+  comment String // toujours renseigné : une ligne = une exception justifiée
+
+  updatedById String
+  updatedBy   User     @relation("EditedBy", fields: [updatedById], references: [id])
+  updatedAt   DateTime @updatedAt
+
+  @@unique([resourceId, date, start]) // un seul statut par ressource × jour × tranche
+}
