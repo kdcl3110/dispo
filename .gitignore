@@ -41,4 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# prisma — client régénéré par `prisma generate`, jamais commité
+/src/generated/
+
 uses_cases/
