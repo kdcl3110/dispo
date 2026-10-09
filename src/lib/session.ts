@@ -15,11 +15,18 @@ import { auth } from "@/auth";
 // fois, même si le layout, la page et plusieurs composants la demandent.
 const getSession = cache(() => auth());
 
+// Utilisateur connecté, ou null. Ne redirige pas : pour les pages qui
+// décident elles-mêmes quoi faire d'un visiteur anonyme.
+export async function getCurrentUser() {
+  const session = await getSession();
+  return session?.user ?? null;
+}
+
 // Utilisateur connecté, quel que soit son rôle. Sinon → page de connexion.
 async function requireSession() {
-  const session = await getSession();
-  if (!session?.user) redirect("/login");
-  return session.user;
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  return user;
 }
 
 // Zone ADMIN. Un USER connecté est renvoyé vers l'accueil, qui l'aiguille
