@@ -69,6 +69,18 @@
   }
 }
 
+/* Papier Seyès : une ligne bleue toutes les 32 px. La marge rouge est un
+   élément à part (border-margin), placé là où les libellés s'arrêtent. */
+@utility bg-seyes {
+  background: repeating-linear-gradient(
+    180deg,
+    var(--color-paper) 0px,
+    var(--color-paper) 31px,
+    var(--color-seyes) 31px,
+    var(--color-seyes) 32px
+  );
+}
+
 /* Hachures « férié » et « pause » : un motif, pas une couleur, d'où l'utilitaire. */
 @utility bg-hatch {
   background: repeating-linear-gradient(

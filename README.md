@@ -35,7 +35,8 @@ src/
   app/                     URLs uniquement : pages, layouts, routes
     layout.tsx
     page.tsx               Aiguillage selon le rôle
-    login/page.tsx
+    login/page.tsx         Connexion du personnel (Google)
+    login/admin/page.tsx   Connexion administrateur
     api/auth/[...nextauth]/route.ts
     admin/                 Zone ADMIN
       layout.tsx           Vérifie le rôle côté serveur
@@ -59,7 +60,7 @@ src/
 
   components/              UI réutilisable
     ui/                    Composants génériques
-    auth/                  Formulaires de la page de connexion
+    auth/                  Pages de connexion : formulaire admin, feuille d'exemple
     availability-grid/     La grille, partagée USER / ADMIN
 
   types/

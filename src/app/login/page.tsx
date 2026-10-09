@@ -1,13 +1,14 @@
-// Page de connexion : deux voies, deux rôles (SPEC §3).
-//  - Google        → personnel HE2B (USER)
-//  - identifiant   → administrateur (ADMIN)
+// Page de connexion du personnel (maquette « Connexion »).
+// Une seule porte d'entrée : Google, réservé aux adresses HE2B. Le mode
+// administrateur a son propre écran, /login/admin.
 
 import { loginWithGoogle } from "@/actions/auth";
-import { CredentialsForm } from "@/components/auth/credentials-form";
+import { SampleSheet, SheetLegend } from "@/components/auth/sample-sheet";
 
 // Erreurs renvoyées par Auth.js dans l'URL (/login?error=…).
 const errorMessages: Record<string, string> = {
-  AccessDenied: "Accès refusé : seules les adresses du personnel HE2B sont acceptées.",
+  AccessDenied:
+    "Cette adresse n'est pas acceptée. Connectez-vous avec votre compte @he2b.be.",
 };
 const defaultError = "La connexion a échoué. Réessayez.";
 
@@ -17,33 +18,58 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     typeof error === "string" ? (errorMessages[error] ?? defaultError) : null;
 
   return (
-    <main className="flex flex-1 items-center justify-center p-6">
-      <div className="flex w-full max-w-sm flex-col gap-8">
-        <h1 className="text-2xl font-semibold">Connexion</h1>
+    <div className="grid flex-1 md:grid-cols-2">
+      <main className="flex flex-col justify-between gap-16 px-6 py-12 md:px-18 md:py-16">
+        <div className="flex flex-col gap-1.5">
+          <span className="font-condensed text-[28px] leading-none font-semibold tracking-[-0.01em]">
+            dispo
+          </span>
+          <span className="text-[13px] text-graphite">Haute École Bruxelles-Brabant</span>
+        </div>
 
-        {errorMessage && (
-          <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-            {errorMessage}
-          </p>
-        )}
+        <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-5">
+            <h1 className="max-w-[500px] text-4xl leading-[1.05] font-semibold tracking-[-0.025em] md:text-5xl">
+              Vos disponibilités pour tout le quadrimestre.
+            </h1>
+            <p className="max-w-[460px] text-[17px] leading-relaxed text-graphite">
+              Quinze semaines sur une seule grille. Par défaut, vous êtes disponible
+              partout : vous ne notez que les créneaux qui posent problème.
+            </p>
+          </div>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-zinc-500">Personnel HE2B</h2>
-          <form action={loginWithGoogle}>
-            <button
-              type="submit"
-              className="w-full rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
-            >
-              Se connecter avec Google
-            </button>
-          </form>
-        </section>
+          <div className="flex flex-col items-start gap-3.5">
+            {errorMessage && (
+              <p
+                role="alert"
+                className="max-w-[460px] rounded-md bg-error-tint px-4 py-3 text-sm text-unavailable"
+              >
+                {errorMessage}
+              </p>
+            )}
+            <form action={loginWithGoogle}>
+              <button
+                type="submit"
+                className="h-13 rounded-md bg-pen px-7 text-base font-semibold text-white hover:bg-pen-dark"
+              >
+                Continuer avec Google
+              </button>
+            </form>
+            <p className="max-w-[420px] text-sm leading-relaxed text-graphite">
+              Réservé aux adresses <strong className="font-semibold text-ink">@he2b.be</strong>.
+              Votre compte est créé à la première connexion.
+            </p>
+          </div>
+        </div>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-zinc-500">Administration</h2>
-          <CredentialsForm />
-        </section>
-      </div>
-    </main>
+        {/* Espace réservé au nom du calendrier publié, quand le domaine calendar existera. */}
+        <div />
+      </main>
+
+      <aside className="hidden flex-col justify-center gap-7 bg-desk px-16 py-18 md:flex">
+        <SampleSheet />
+        <SheetLegend />
+      </aside>
+    </div>
   );
 }

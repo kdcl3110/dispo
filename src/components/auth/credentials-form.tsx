@@ -7,34 +7,45 @@ import { useActionState } from "react";
 
 import { loginWithCredentials } from "@/actions/auth";
 
+const inputClass =
+  "h-11 rounded-md border border-field bg-paper px-3 text-sm text-ink aria-invalid:border-2 aria-invalid:border-unavailable";
+
 export function CredentialsForm() {
   const [error, formAction, pending] = useActionState(loginWithCredentials, undefined);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm">
-        Identifiant
+    <form action={formAction} className="flex flex-col gap-4.5">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="username" className="text-[13px] font-semibold">
+          Identifiant
+        </label>
         <input
+          id="username"
           name="username"
           required
           autoComplete="username"
-          className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          aria-invalid={error ? true : undefined}
+          className={inputClass}
         />
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1 text-sm">
-        Mot de passe
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="password" className="text-[13px] font-semibold">
+          Mot de passe
+        </label>
         <input
+          id="password"
           name="password"
           type="password"
           required
           autoComplete="current-password"
-          className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          aria-invalid={error ? true : undefined}
+          className={inputClass}
         />
-      </label>
+      </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-unavailable">
           {error}
         </p>
       )}
@@ -42,7 +53,7 @@ export function CredentialsForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        className="mt-1.5 h-12 rounded-md bg-pen text-sm font-semibold text-white hover:bg-pen-dark disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Connexion…" : "Se connecter"}
       </button>
