@@ -29,6 +29,10 @@ function isAllowedEmail(email: string) {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
 
+  // Notre page remplace celle d'Auth.js, y compris pour les erreurs : un refus
+  // Google arrive sur /login?error=AccessDenied.
+  pages: { signIn: "/login", error: "/login" },
+
   providers: [
     Credentials({
       credentials: {
@@ -37,8 +41,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
 
       async authorize(credentials) {
-        console.log("[auth] 1. authorize", { username: credentials.username });
-
         const username =
           typeof credentials.username === "string"
             ? credentials.username.trim()
@@ -67,13 +69,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     // Contrôle d'accès Google + création du compte à la première connexion.
     // Refuser ici (return false) bloque la connexion avant toute session.
-    async signIn({ user, account, profile }) {
-      console.log("[auth] 2. signIn", {
-        provider: account?.provider,
-        user,
-        profile: profile && { email: profile.email, name: profile.name },
-      });
-
+    async signIn({ account, profile }) {
       if (account?.provider !== "google") return true;
 
       const email = profile?.email?.toLowerCase();
@@ -102,12 +98,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // `user` n'est fourni qu'à la connexion : on recopie alors id et rôle dans
     // le token, qui les transporte ensuite d'une requête à l'autre.
     async jwt({ token, user, account }) {
-      console.log("[auth] 3. jwt", {
-        provider: account?.provider,
-        user,
-        tokenAvant: token,
-      });
-
       // Pour Google, `user.id` est l'identifiant Google, pas le nôtre : on
       // relit le compte créé par signIn.
       if (account?.provider === "google" && token.email) {
@@ -124,8 +114,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     session({ session, token }) {
-      console.log("[auth] 4. session", { token });
-
       session.user.id = token.id;
       session.user.role = token.role;
       return session;

@@ -20,7 +20,7 @@ npm run dev                 # http://localhost:3000
 ### Règle de base
 
 Chaque domaine métier porte **le même nom dans toutes les couches** :
-`calendar`, `availability`, `resource`, `import`. Pour une fonctionnalité donnée, on sait où trouver sa page, son action et sa logique.
+`calendar`, `availability`, `resource`, `import`, plus `auth` pour la connexion. Pour une fonctionnalité donnée, on sait où trouver sa page, son action et sa logique.
 
 ```
 prisma/
@@ -45,6 +45,7 @@ src/
     availability/          Zone USER : sa propre grille
 
   actions/                 Server Actions, un fichier par domaine
+    auth.ts                Connexion Google / admin, déconnexion
     calendar.ts
     availability.ts
     resource.ts
@@ -58,6 +59,7 @@ src/
 
   components/              UI réutilisable
     ui/                    Composants génériques
+    auth/                  Formulaires de la page de connexion
     availability-grid/     La grille, partagée USER / ADMIN
 
   types/

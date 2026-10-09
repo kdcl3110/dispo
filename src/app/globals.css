@@ -1,26 +1,81 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Tokens de l'interface — direction « grille horaire papier » des maquettes.
+ * Chaque couleur devient une classe Tailwind : bg-paper, text-ink, border-rule…
+ * Pas de mode sombre : l'interface imite une feuille de papier.
+ */
+@theme {
+  /* Base */
+  --color-paper: #ffffff;
+  --color-desk: #f1f4f9; /* fond derrière une feuille (page de connexion) */
+  --color-ink: #1d2433; /* texte principal */
+  --color-graphite: #5a6070; /* texte secondaire */
+  --color-rule: #dde2ea; /* filets, séparateurs */
+  --color-field: #c9cfd9; /* bordure des champs */
+
+  /* Bleu Bic : actions, liens, focus, sélection */
+  --color-pen: #2340a8;
+  --color-pen-dark: #182e7a;
+  --color-pen-tint: #eef2fb;
+
+  /* Papier Seyès : réservé aux grilles */
+  --color-seyes: #e3eaf5;
+  --color-seyes-strong: #b9c7e2;
+  --color-margin: #e9a3a9;
+
+  /* Statuts — uniquement pour les créneaux, jamais en décoration */
+  --color-if-needed: #ffe15a; /* surligneur */
+  --color-if-needed-edge: #e5c53a;
+  --color-if-needed-ink: #3a2f00;
+  --color-unavailable: #c62d35; /* stylo rouge */
+  --color-unavailable-edge: #a8232b;
+  --color-error-tint: #fcedee;
+
+  /* Typographie (variables posées par next/font dans layout.tsx) */
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-condensed: var(--font-plex-condensed), var(--font-plex-sans), sans-serif;
+  --font-mono: var(--font-plex-mono), monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Heures et dates restent alignées en colonne */
+    font-variant-numeric: tabular-nums;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  a {
+    color: var(--color-pen);
+  }
+  a:hover {
+    color: var(--color-pen-dark);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-pen);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Hachures « férié » et « pause » : un motif, pas une couleur, d'où l'utilitaire. */
+@utility bg-hatch {
+  background: repeating-linear-gradient(
+    135deg,
+    #eef0f3 0px,
+    #eef0f3 4px,
+    #e0e4ea 4px,
+    #e0e4ea 8px
+  );
 }
