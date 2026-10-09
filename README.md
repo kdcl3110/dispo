@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dispo
 
-## Getting Started
+Gestion des disponibilités du personnel HE2B, des locaux et des équipements sur un calendrier de 15 semaines maximum, avec export JSON.
 
-First, run the development server:
+Spécification complète : [SPEC.md](SPEC.md).
+
+## Démarrer
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env        # puis compléter les valeurs
+docker compose up -d        # PostgreSQL sur le port 5433
+npm install
+npx prisma migrate dev      # applique les migrations et génère le client
+npx prisma db seed          # crée le compte admin (SEED_ADMIN_*)
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Architecture
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Règle de base
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Chaque domaine métier porte **le même nom dans toutes les couches** :
+`calendar`, `availability`, `resource`, `import`. Pour une fonctionnalité donnée, on sait où trouver sa page, son action et sa logique.
 
-## Learn More
+```
+prisma/
+  schema.prisma            Modèle de données (SPEC §5)
+  migrations/              Générées par Prisma, ne pas éditer
+  seed.ts                  Création du compte admin
 
-To learn more about Next.js, take a look at the following resources:
+src/
+  auth.ts                  Config Auth.js : providers, JWT, callbacks
+  proxy.ts                 Redirection rapide par rôle (Next 16 : ex-middleware)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+  app/                     URLs uniquement : pages, layouts, routes
+    layout.tsx
+    page.tsx               Aiguillage selon le rôle
+    login/page.tsx
+    api/auth/[...nextauth]/route.ts
+    admin/                 Zone ADMIN
+      layout.tsx           Vérifie le rôle côté serveur
+      calendar/            Config, pauses, jours fériés, publication
+      resources/           Liste, import XLS, grille d'une ressource
+      export/route.ts      Téléchargement du JSON
+    availability/          Zone USER : sa propre grille
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+  actions/                 Server Actions, un fichier par domaine
+    calendar.ts
+    availability.ts
+    resource.ts
+    import.ts
 
-## Deploy on Vercel
+  lib/                     Logique serveur, sans UI
+    prisma.ts              Instance Prisma unique
+    session.ts             requireAdmin() / requireUser()
+    slots.ts               Génération des créneaux (SPEC §6)
+    validation/            Règles de validation par domaine (SPEC §10)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+  components/              UI réutilisable
+    ui/                    Composants génériques
+    availability-grid/     La grille, partagée USER / ADMIN
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+  types/
+    next-auth.d.ts         Ajoute `role` à la session
+
+  generated/prisma/        Client Prisma généré, ignoré par git
+```
+
+### Qui fait quoi
+
+| Couche | Rôle | Interdit |
+|---|---|---|
+| `app/` | Routage : récupère les données, affiche | Logique métier |
+| `actions/` | Vérifie les droits, valide, délègue à `lib/` | Rendu d'UI |
+| `lib/` | Règles métier, accès base | React, formulaires |
+| `components/` | Affichage | Accès base |
+
+`proxy.ts` ne fait qu'une redirection optimiste. La vraie vérification des droits est faite dans `lib/session.ts`, appelée par chaque layout protégé et chaque action.
+
+### Conventions
+
+- Code (fichiers, variables, URLs) en anglais. Commentaires et textes affichés en français.
+- Fichiers en `kebab-case`, un domaine par fichier.
+- Import via l'alias `@/` (`@/lib/prisma`), jamais de chemins relatifs qui remontent dans `src/`.
+- Tout nouvel emplacement non prévu ici est ajouté à cette carte **avant** d'y créer un fichier.
