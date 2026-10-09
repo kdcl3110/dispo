@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 
 import { defineConfig, env } from 'prisma/config'
 
+// Prisma 7 ne charge plus .env tout seul, et l'URL de connexion ne vit plus dans
 // schema.prisma. C'est ici que Migrate va la chercher.
 //
 // En production (Vercel), les variables viennent de la plateforme et le fichier
@@ -12,6 +13,9 @@ if (existsSync('.env')) {
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
+  migrations: {
+    seed: 'tsx prisma/seed.ts',
+  },
   datasource: {
     url: env('DATABASE_URL'),
   },
