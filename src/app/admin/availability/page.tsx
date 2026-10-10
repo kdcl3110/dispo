@@ -64,6 +64,7 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
         calendar={calendar}
         initialExceptions={initialExceptions}
         totalSlots={days.length * generateSlots(calendar).length}
+        quickMarking
       />
     </main>
   );
