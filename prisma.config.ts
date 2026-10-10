@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 
-import { defineConfig, env } from 'prisma/config'
+import { defineConfig } from 'prisma/config'
 
 // Prisma 7 ne charge plus .env tout seul, et l'URL de connexion ne vit plus dans
 // schema.prisma. C'est ici que Migrate va la chercher.
@@ -17,6 +17,8 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url: env('DATABASE_URL'),
+    // generate n'a pas besoin de la base : sans URL, seules les commandes qui
+    // s'y connectent (migrate, seed) échoueront.
+    url: process.env.DATABASE_URL ?? '',
   },
 })
