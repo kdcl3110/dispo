@@ -30,6 +30,12 @@ export async function updateResource(id: string, input: { type: "LOCAL" | "EQUIP
   return prisma.resource.update({ where: { id }, data: { type: input.type, name: input.name.trim() } });
 }
 
+// Supprime une ressource. Ses créneaux signalés partent avec elle (cascade
+// définie dans le schéma, Availability.resource onDelete: Cascade).
+export async function deleteResource(id: string) {
+  return prisma.resource.delete({ where: { id } });
+}
+
 export interface ResourceRow {
   id: string;
   type: ResourceType;

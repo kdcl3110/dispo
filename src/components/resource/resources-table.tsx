@@ -4,12 +4,12 @@
 // Design : recherche et filtre par type instantanés, tri par colonne, fenêtres
 // d'ajout, de modification et d'import Excel des locaux et équipements.
 
-import { App, Button, Form, Input, Modal, Segmented, Select, Table, type TableColumnsType } from "antd";
+import { App, Button, Form, Input, Modal, Popconfirm, Segmented, Select, Table, type TableColumnsType } from "antd";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { saveResource } from "@/actions/resource";
+import { removeResource, saveResource } from "@/actions/resource";
 import type { ResourceRow } from "@/lib/resource";
 import { MAX_RESOURCE_NAME_LENGTH, type EditableResourceType } from "@/lib/validation/resource";
 
@@ -88,7 +88,7 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
     {
       title: <span className="sr-only">Actions</span>,
       key: "actions",
-      width: 200,
+      width: 290,
       align: "right",
       render: (_, r) => (
         <div className="flex items-center justify-end gap-2">
@@ -96,9 +96,12 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
             Voir la grille
           </Link>
           {r.type !== "PERSON" && (
-            <Button size="small" onClick={() => setEditing({ id: r.id, type: r.type as EditableResourceType, name: r.name })}>
-              Modifier
-            </Button>
+            <>
+              <Button size="small" onClick={() => setEditing({ id: r.id, type: r.type as EditableResourceType, name: r.name })}>
+                Modifier
+              </Button>
+              <DeleteButton row={r} />
+            </>
           )}
         </div>
       ),
@@ -146,6 +149,47 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
       {editing && <ResourceModal key={editing.id ?? "new"} editing={editing} onClose={() => setEditing(null)} />}
       {importing && <ImportModal onClose={() => setImporting(false)} />}
     </div>
+  );
+}
+
+// « Supprimer », avec une confirmation qui annonce les créneaux perdus.
+function DeleteButton({ row }: { row: ResourceRow }) {
+  const { message } = App.useApp();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const signaled = row.unavailable + row.ifNeeded;
+
+  function confirm() {
+    startTransition(async () => {
+      const result = await removeResource({ id: row.id });
+      if (!result.ok) {
+        message.error(result.errors[0]?.message ?? "La suppression a échoué.");
+        return;
+      }
+      message.success(`« ${row.name} » a été supprimé.`);
+      router.refresh();
+    });
+  }
+
+  return (
+    <Popconfirm
+      title={`Supprimer « ${row.name} » ?`}
+      description={
+        signaled === 0
+          ? "Aucun créneau signalé n'est perdu."
+          : signaled === 1
+            ? "Son créneau signalé sera supprimé aussi."
+            : `Ses ${signaled} créneaux signalés seront supprimés aussi.`
+      }
+      okText="Supprimer"
+      okButtonProps={{ danger: true }}
+      cancelText="Annuler"
+      onConfirm={confirm}
+    >
+      <Button size="small" danger loading={pending}>
+        Supprimer
+      </Button>
+    </Popconfirm>
   );
 }
 

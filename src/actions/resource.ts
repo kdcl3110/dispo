@@ -1,11 +1,11 @@
 "use server";
 
-// Server Action de l'écran « Ressources » : ajouter ou modifier un local ou un
+// Server Actions de l'écran « Ressources » : ajouter, modifier ou supprimer un local ou un
 // équipement. Ordre immuable : droits → lecture → validation → écriture.
 
 import { revalidatePath } from "next/cache";
 
-import { createResource, findResourceByName, getResource, updateResource } from "@/lib/resource";
+import { createResource, deleteResource, findResourceByName, getResource, updateResource } from "@/lib/resource";
 import { requireAdmin } from "@/lib/session";
 import type { ValidationError } from "@/lib/validation/calendar";
 import { validateResourceInput, type EditableResourceType } from "@/lib/validation/resource";
@@ -47,5 +47,25 @@ export async function saveResource(input: { id?: string; type: string; name: str
   else await createResource({ type, name: values.name });
 
   revalidatePath("/admin/resources");
+  return { ok: true };
+}
+
+// Supprime un local ou un équipement, avec ses créneaux signalés. Les
+// personnes ne se suppriment pas ici : leur fiche est liée à leur compte
+// Google et serait recréée à leur prochaine connexion.
+export async function removeResource(input: { id: string }): Promise<SaveResourceResult> {
+  await requireAdmin();
+
+  const resource = await getResource(String(input?.id ?? ""));
+  if (!resource) {
+    return { ok: false, errors: [{ field: "form", message: "Cette ressource n'existe plus. Rechargez la page." }] };
+  }
+  if (resource.type === "PERSON") {
+    return { ok: false, errors: [{ field: "form", message: "Un membre du personnel ne se supprime pas depuis cette page." }] };
+  }
+
+  await deleteResource(resource.id);
+  revalidatePath("/admin/resources");
+  revalidatePath("/admin/availability");
   return { ok: true };
 }
