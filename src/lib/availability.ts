@@ -75,3 +75,34 @@ export async function saveSlots(input: {
     }),
   );
 }
+
+// Ajoute des créneaux signalés en lot, SANS toucher à ceux qui existent déjà
+// (skipDuplicates sur la contrainte ressource × date × heure). Renvoie le
+// nombre de lignes réellement créées.
+export async function addExceptions(input: {
+  calendarId: string;
+  resourceId: string;
+  updatedById: string;
+  rows: { date: ISODate; start: Time; status: ExceptionStatus; comment: string }[];
+}) {
+  const { count } = await prisma.availability.createMany({
+    data: input.rows.map((row) => ({
+      calendarId: input.calendarId,
+      resourceId: input.resourceId,
+      updatedById: input.updatedById,
+      date: toDbDate(row.date),
+      start: row.start,
+      status: row.status,
+      comment: row.comment,
+    })),
+    skipDuplicates: true,
+  });
+  return count;
+}
+
+// « Tout remettre à disponible » : efface tous les créneaux signalés d'une
+// ressource sur ce calendrier.
+export async function clearExceptions(calendarId: string, resourceId: string) {
+  const { count } = await prisma.availability.deleteMany({ where: { calendarId, resourceId } });
+  return count;
+}

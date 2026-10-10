@@ -7,11 +7,11 @@
 // Option `quickMarking` (écran admin) : un mode « au clic » où chaque clic
 // applique directement un statut choisi d'avance, sans ouvrir la fenêtre.
 
-import { App, Input, Segmented } from "antd";
+import { App, Button, Input, Popconfirm, Segmented, Select } from "antd";
 import { useState, useTransition } from "react";
 
-import { saveSlot, type SlotState } from "@/actions/availability";
-import { generateSlots, slotKey, type ISODate, type Time } from "@/lib/slots";
+import { copyWeekToAll, resetAll, saveSlot, type SaveSlotResult, type SlotState } from "@/actions/availability";
+import { calendarWeekGrid, generateSlots, slotKey, type ISODate, type Time } from "@/lib/slots";
 import { MAX_COMMENT_LENGTH, validateExceptionInput } from "@/lib/validation/availability";
 
 import { AvailabilityGrid, type ExceptionMap, type GridCalendar, type SlotStatus } from "./grid";
@@ -19,6 +19,8 @@ import { AvailabilityLegend } from "./legend";
 import { SlotDialog } from "./slot-dialog";
 
 const time = new Intl.DateTimeFormat("fr-BE", { hour: "2-digit", minute: "2-digit" });
+const shortDate = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short", timeZone: "UTC" });
+const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
 // « dialog » : chaque clic ouvre la fenêtre. Sinon : statut appliqué au clic.
 type ClickMode = "dialog" | SlotStatus;
@@ -51,6 +53,16 @@ export function AvailabilityBoard({
   const [quickComment, setQuickComment] = useState("");
   const [commentMissing, setCommentMissing] = useState(false);
   const [, startTransition] = useTransition();
+  const [bulk, setBulk] = useState<"copy" | "reset" | null>(null);
+
+  // Semaine modèle de « Appliquer à tout le quadrimestre » : la 1 par défaut,
+  // ou la première qui a des jours de cours (un calendrier peut commencer un
+  // samedi : sa semaine 1 est alors vide).
+  const { weeks } = calendarWeekGrid({ startDate: calendar.startDate, endDate: calendar.endDate, weekDays: calendar.weekDays });
+  const [modelWeek, setModelWeek] = useState((weeks.find((w) => w.dates.some(Boolean)) ?? weeks[0])?.monday ?? "");
+  const modelIndex = Math.max(0, weeks.findIndex((w) => w.monday === modelWeek));
+  const modelDates = new Set(weeks[modelIndex]?.dates.filter(Boolean));
+  const modelCount = Object.keys(exceptions).filter((key) => modelDates.has(key.split("|")[0])).length;
 
   const slots = generateSlots(calendar);
   const count = Object.keys(exceptions).length;
@@ -87,6 +99,25 @@ export function AvailabilityBoard({
       const result = await saveSlot({ resourceId, date, start, status: mode, comment: quickComment });
       if (result.ok) applySaved(result.slots, true);
       else message.error(result.errors[0]?.message ?? "L'enregistrement a échoué.");
+    });
+  }
+
+  // Actions en lot : recopier la semaine modèle, ou tout effacer.
+  function runBulk(kind: "copy" | "reset") {
+    setBulk(kind);
+    startTransition(async () => {
+      const result: SaveSlotResult =
+        kind === "copy" ? await copyWeekToAll({ resourceId, weekMonday: modelWeek }) : await resetAll({ resourceId });
+      setBulk(null);
+      if (!result.ok) {
+        message.error(result.errors[0]?.message ?? "L'opération a échoué.");
+        return;
+      }
+      applySaved(result.slots, true);
+      const n = result.slots.length;
+      if (kind === "reset") message.success(`${plural(n, "créneau effacé", "créneaux effacés")}.`);
+      else if (n === 0) message.info("Rien à ajouter : les autres semaines ont déjà ces créneaux, ou ce sont des jours retirés.");
+      else message.success(`${plural(n, "créneau ajouté", "créneaux ajoutés")} sur les autres semaines.`);
     });
   }
 
@@ -157,11 +188,48 @@ export function AvailabilityBoard({
 
       <AvailabilityGrid calendar={calendar} exceptions={exceptions} onSlotClick={handleClick} />
 
-      <p role="status" className="text-sm text-graphite">
-        {savedAt
-          ? `Modifications enregistrées à ${time.format(savedAt)}.`
-          : "Pour « si nécessaire » et « indisponible », un commentaire est demandé."}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p role="status" className="text-sm text-graphite">
+          {savedAt
+            ? `Modifications enregistrées à ${time.format(savedAt)}.`
+            : "Pour « si nécessaire » et « indisponible », un commentaire est demandé."}
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Select
+            aria-label="Semaine modèle"
+            value={modelWeek}
+            onChange={setModelWeek}
+            options={weeks.map((w, i) => ({ value: w.monday, label: `Semaine ${i + 1}, ${shortDate.format(new Date(`${w.monday}T00:00:00Z`))}` }))}
+            className="w-50!"
+          />
+          <Popconfirm
+            title={`Recopier la semaine ${modelIndex + 1} sur tout le quadrimestre ?`}
+            description={`Ses ${plural(modelCount, "créneau signalé", "créneaux signalés")} seront ajoutés aux autres semaines. Ce qui y est déjà signalé est gardé.`}
+            okText="Recopier"
+            cancelText="Annuler"
+            onConfirm={() => runBulk("copy")}
+            disabled={modelCount === 0}
+          >
+            <Button disabled={modelCount === 0} loading={bulk === "copy"} title={modelCount === 0 ? `Aucun créneau signalé en semaine ${modelIndex + 1}` : undefined}>
+              Appliquer à tout le quadrimestre
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title="Tout remettre à disponible ?"
+            description={`${plural(count, "créneau signalé sera effacé", "créneaux signalés seront effacés")}, avec leurs commentaires.`}
+            okText="Tout effacer"
+            okButtonProps={{ danger: true }}
+            cancelText="Annuler"
+            onConfirm={() => runBulk("reset")}
+            disabled={count === 0}
+          >
+            <Button danger disabled={count === 0} loading={bulk === "reset"}>
+              Tout remettre à disponible
+            </Button>
+          </Popconfirm>
+        </div>
+      </div>
 
       {open && (
         <SlotDialog
