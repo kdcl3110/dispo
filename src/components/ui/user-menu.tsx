@@ -26,7 +26,7 @@ export function UserMenu({
   placement?: "bottomRight" | "topLeft";
   reconnectHint: string; // ce qu'il faudra pour revenir, affiché dans la confirmation
 }) {
-  const { modal } = App.useApp();
+  const { modal, message } = App.useApp();
   const opensUp = placement.startsWith("top");
 
   function confirmLogout() {
@@ -36,8 +36,16 @@ export function UserMenu({
       content: reconnectHint,
       okText: "Se déconnecter",
       cancelText: "Annuler",
-      // La fenêtre attend la fin de l'action ; logout redirige vers /login.
-      onOk: () => logout(),
+      // On ne renvoie PAS la promesse de logout : l'action se termine par une
+      // redirection vers /login et ne « se résout » jamais côté navigateur. La
+      // fenêtre attendrait alors indéfiniment et, rattachée au layout racine,
+      // resterait ouverte sur la page de connexion. Elle se ferme donc tout de
+      // suite, et un message accompagne la redirection.
+      onOk: () => {
+        // Court : lui aussi vit au niveau du layout racine et survivrait à la redirection.
+        message.loading({ content: "Déconnexion…", key: "logout", duration: 2 });
+        void logout();
+      },
     });
   }
 

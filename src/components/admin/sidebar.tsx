@@ -9,11 +9,13 @@ import {
   EditOutlined,
   ExportOutlined,
   TeamOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
-import { Layout, Menu, type MenuProps } from "antd";
+import { Button, Layout, Menu, Tooltip, type MenuProps } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { switchToStaff } from "@/actions/auth";
 import { UserMenu } from "@/components/ui/user-menu";
 
 // Regroupée par phase de travail : préparer le calendrier, puis les ressources.
@@ -69,8 +71,17 @@ export function AdminSidebar({ username }: { username: string }) {
           </nav>
         </div>
 
-        {/* Nom de l'administrateur : un clic ouvre son menu, vers le haut. */}
-        <div className="mx-3 border-t border-rule pt-3">
+        <div className="mx-3 flex flex-col gap-3 border-t border-rule pt-3">
+          {/* Symétrique du bouton « Mode administrateur » de l'espace personnel. */}
+          <Tooltip title="Quitter le mode administrateur et revenir à vos disponibilités (connexion Google)." placement="right">
+            <form action={switchToStaff}>
+              <Button htmlType="submit" icon={<UserOutlined />} block>
+                Espace personnel
+              </Button>
+            </form>
+          </Tooltip>
+
+          {/* Nom de l'administrateur : un clic ouvre son menu, vers le haut. */}
           <UserMenu
             name={username}
             caption="Administrateur"

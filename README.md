@@ -72,7 +72,7 @@ src/
       resource.ts          Local ou équipement (type, nom)
 
   components/              UI réutilisable
-    ui/                    Thème Ant Design, fournisseurs, en-tête d'écran, icônes, menu utilisateur
+    ui/                    Thème Ant Design, fournisseurs, en-tête d'écran, icônes, menu utilisateur, squelettes
     admin/                 Cadre de la zone admin, choix de la ressource
     calendar/              Calendriers : liste, résumé, panneaux de modification, aperçu des mois
     resource/              Tableau des ressources, fenêtres d'ajout et d'import
@@ -97,6 +97,8 @@ src/
 `proxy.ts` ne fait qu'une redirection optimiste. La vraie vérification des droits est faite dans `lib/session.ts`, appelée par chaque layout protégé et chaque action.
 
 ### Conventions
+
+- Chaque groupe d'écrans a son `loading.tsx` (squelette à la forme de l'écran, pièces dans `components/ui/skeletons.tsx`).
 
 - Code (fichiers, variables, URLs) en anglais. Commentaires et textes affichés en français.
 - Fichiers en `kebab-case`, un domaine par fichier.

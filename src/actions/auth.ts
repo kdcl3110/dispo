@@ -41,3 +41,12 @@ export async function loginWithCredentials(
 export async function logout() {
   await signOut({ redirectTo: "/login" });
 }
+
+// Mode administrateur → espace personnel. Les deux rôles sont séparés (SPEC §3) :
+// on ferme la session admin, puis on lance tout de suite la connexion Google.
+// Si le compte Google est déjà ouvert dans le navigateur, Google renvoie
+// directement vers les disponibilités, sans rien à saisir.
+export async function switchToStaff() {
+  await signOut({ redirect: false });
+  await signIn("google", { redirectTo: AFTER_LOGIN });
+}
