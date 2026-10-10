@@ -4,9 +4,9 @@
 // Elles ne font que transmettre à Auth.js : les règles (rôle, domaine,
 // mot de passe) sont dans src/auth.ts.
 
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 
-import { signIn, signOut } from "@/auth";
+import { LOCK_MINUTES, signIn, signOut } from "@/auth";
 
 // Après connexion, « / » aiguille vers la zone du rôle.
 const AFTER_LOGIN = "/";
@@ -29,6 +29,9 @@ export async function loginWithCredentials(
     });
   } catch (error) {
     // Identifiants refusés : Auth.js lève une AuthError, on renvoie un message.
+    if (error instanceof CredentialsSignin && error.code === "locked") {
+      return `Trop de tentatives. Réessayez dans ${LOCK_MINUTES} minutes.`;
+    }
     if (error instanceof AuthError) {
       return "Identifiant ou mot de passe incorrect.";
     }

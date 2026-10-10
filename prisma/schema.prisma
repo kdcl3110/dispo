@@ -44,6 +44,9 @@ model User {
   // Voie identifiant / mot de passe (admin, créé par seed)
   username     String? @unique
   passwordHash String?
+  // Protection contre la force brute : 5 échecs → compte verrouillé 15 min.
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
 
   name      String?
   createdAt DateTime @default(now())

@@ -8,7 +8,7 @@
 // les comptes sont lus et créés à la main.
 
 import bcrypt from "bcryptjs";
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
@@ -24,6 +24,18 @@ const allowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS ?? "")
 function isAllowedEmail(email: string) {
   const domain = email.split("@").pop()?.toLowerCase();
   return domain !== undefined && allowedDomains.includes(domain);
+}
+
+// Force brute sur la connexion admin : après 5 mauvais mots de passe, le
+// compte est verrouillé 15 minutes. Compté en base, et non en mémoire : sur
+// Vercel, plusieurs instances tournent en parallèle.
+export const MAX_FAILED_LOGINS = 5;
+export const LOCK_MINUTES = 15;
+
+// Refus dû au verrouillage. `code` est relu par l'action de connexion pour
+// afficher un message distinct de « mot de passe incorrect ».
+class AccountLocked extends CredentialsSignin {
+  code = "locked";
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -54,8 +66,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Seuls les comptes ADMIN ont un mot de passe : un compte Google ne
         // peut pas passer par cette voie, même si son username était rempli.
         if (!user || user.role !== "ADMIN" || !user.passwordHash) return null;
-        if (!(await bcrypt.compare(password, user.passwordHash))) return null;
 
+        // Verrouillé : refusé sans même comparer, un bon mot de passe ne
+        // doit pas pouvoir être confirmé pendant le blocage.
+        if (user.lockedUntil && user.lockedUntil > new Date()) throw new AccountLocked();
+
+        if (!(await bcrypt.compare(password, user.passwordHash))) {
+          // Incrément atomique : des essais simultanés comptent tous.
+          const { failedLogins } = await prisma.user.update({
+            where: { id: user.id },
+            data: { failedLogins: { increment: 1 } },
+          });
+          if (failedLogins >= MAX_FAILED_LOGINS) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) },
+            });
+            throw new AccountLocked();
+          }
+          return null;
+        }
+
+        if (user.failedLogins > 0 || user.lockedUntil) {
+          await prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null } });
+        }
         return { id: user.id, name: user.name, role: user.role };
       },
     }),
