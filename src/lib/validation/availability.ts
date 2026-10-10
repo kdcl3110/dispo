@@ -28,6 +28,7 @@ export interface CalendarForValidation {
   dayStart: Time;
   dayEnd: Time;
   slotDuration: number;
+  slotGap?: number;
   breaks: BreakRange[];
   holidays: { date: ISODate }[];
   publishedAt: Date | null;

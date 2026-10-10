@@ -13,6 +13,7 @@ npm install
 npx prisma migrate dev      # applique les migrations et génère le client
 npx prisma db seed          # crée le compte admin (SEED_ADMIN_*)
 npm run dev                 # http://localhost:3000
+npm test                    # tests des règles métier (Vitest)
 ```
 
 ## Architecture
@@ -60,7 +61,7 @@ src/
   lib/                     Logique serveur, sans UI
     prisma.ts              Instance Prisma unique
     availability.ts        Créneaux signalés : lire, enregistrer, effacer
-    calendar.ts            Lecture / écriture du calendrier (unique)
+    calendar.ts            Lecture / écriture des calendriers
     export.ts              Construction de l'export JSON (SPEC §9)
     import.ts              Lecture du fichier Excel, création des ressources
     resource.ts            Ressources : lecture, création, modification
@@ -78,6 +79,9 @@ src/
     resource/              Tableau des ressources, fenêtres d'ajout et d'import
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN
+
+  test/                    Outillage des tests (pas de tests ici)
+    server-only-stub.ts    Remplace `server-only` hors de Next
 
   types/
     next-auth.d.ts         Ajoute `role` à la session
@@ -103,4 +107,5 @@ src/
 - Code (fichiers, variables, URLs) en anglais. Commentaires et textes affichés en français.
 - Fichiers en `kebab-case`, un domaine par fichier.
 - Import via l'alias `@/` (`@/lib/prisma`), jamais de chemins relatifs qui remontent dans `src/`.
+- Tests à côté du fichier testé : `slots.ts` → `slots.test.ts`. Ils couvrent les fonctions pures de `lib/` ; Prisma y est remplacé par un faux (`vi.mock`), aucun test ne touche la base.
 - Tout nouvel emplacement non prévu ici est ajouté à cette carte **avant** d'y créer un fichier.
