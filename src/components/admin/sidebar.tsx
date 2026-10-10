@@ -27,7 +27,6 @@ const items: MenuProps["items"] = [
     label: "Ressources",
     children: [
       { key: "/admin/resources", label: <Link href="/admin/resources">Liste des ressources</Link> },
-      { key: "/admin/resources/import", label: <Link href="/admin/resources/import">Import des locaux</Link> },
       { key: "/admin/availability", label: <Link href="/admin/availability">Saisie des disponibilités</Link> },
       { key: "/admin/export", label: <Link href="/admin/export">Export JSON</Link> },
     ],

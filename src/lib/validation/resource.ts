@@ -5,6 +5,10 @@ import type { ValidationError } from "@/lib/validation/calendar";
 
 export const MAX_RESOURCE_NAME_LENGTH = 120;
 
+// Taille maximale d'un fichier d'import : 1 Mo, la limite par défaut des
+// Server Actions. Une liste de locaux pèse quelques kilo-octets.
+export const MAX_IMPORT_BYTES = 1024 * 1024;
+
 // Types qu'un administrateur peut créer ou modifier.
 export type EditableResourceType = "LOCAL" | "EQUIPMENT";
 export const EDITABLE_TYPES: EditableResourceType[] = ["LOCAL", "EQUIPMENT"];

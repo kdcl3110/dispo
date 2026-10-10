@@ -4,6 +4,7 @@
 // et garde les créneaux signalés à jour après chaque enregistrement, sans
 // recharger la page. Partagé par le personnel et l'administration.
 
+import { App } from "antd";
 import { useState } from "react";
 
 import type { SlotState } from "@/actions/availability";
@@ -29,6 +30,7 @@ export function AvailabilityBoard({
   const [exceptions, setExceptions] = useState(initialExceptions);
   const [selected, setSelected] = useState<{ date: ISODate; start: Time } | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const { message } = App.useApp();
 
   const slots = generateSlots(calendar);
   const count = Object.keys(exceptions).length;
@@ -44,6 +46,7 @@ export function AvailabilityBoard({
       return next;
     });
     setSavedAt(new Date());
+    message.success(saved.length > 1 ? `${saved.length} créneaux enregistrés.` : "Créneau enregistré.");
   }
 
   const open = selected && {

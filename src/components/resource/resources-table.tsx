@@ -1,8 +1,8 @@
 "use client";
 
 // Tableau des ressources (maquette « Admin — Ressources »), en Table d'Ant
-// Design : recherche et filtre par type instantanés, tri par colonne, fenêtre
-// d'ajout et de modification des locaux et équipements.
+// Design : recherche et filtre par type instantanés, tri par colonne, fenêtres
+// d'ajout, de modification et d'import Excel des locaux et équipements.
 
 import { App, Button, Form, Input, Modal, Segmented, Select, Table, type TableColumnsType } from "antd";
 import Link from "next/link";
@@ -12,6 +12,8 @@ import { useState, useTransition } from "react";
 import { saveResource } from "@/actions/resource";
 import type { ResourceRow } from "@/lib/resource";
 import { MAX_RESOURCE_NAME_LENGTH, type EditableResourceType } from "@/lib/validation/resource";
+
+import { ImportModal } from "./import-modal";
 
 type TypeFilter = "ALL" | ResourceRow["type"];
 
@@ -44,6 +46,7 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
   const [filter, setFilter] = useState<TypeFilter>("ALL");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Editing | null>(null);
+  const [importing, setImporting] = useState(false);
 
   // Recherche sans tenir compte des accents ni des majuscules (« equipe » trouve « Équipe »).
   const q = normalize(query.trim());
@@ -116,9 +119,12 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
           />
           <Segmented<TypeFilter> options={FILTERS} value={filter} onChange={setFilter} aria-label="Filtrer par type" />
         </div>
-        <Button type="primary" onClick={() => setEditing({ type: "LOCAL", name: "" })}>
-          Ajouter une ressource
-        </Button>
+        <div className="flex flex-wrap gap-2.5">
+          <Button onClick={() => setImporting(true)}>Importer un fichier Excel</Button>
+          <Button type="primary" onClick={() => setEditing({ type: "LOCAL", name: "" })}>
+            Ajouter une ressource
+          </Button>
+        </div>
       </div>
 
       <Table<ResourceRow>
@@ -130,7 +136,7 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
         locale={{
           emptyText:
             rows.length === 0 ? (
-              <EmptyState />
+              <EmptyState onImport={() => setImporting(true)} />
             ) : (
               <p className="py-6 text-graphite">Aucune ressource ne correspond{query ? ` à « ${query} »` : " à ce filtre"}.</p>
             ),
@@ -138,11 +144,12 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
       />
 
       {editing && <ResourceModal key={editing.id ?? "new"} editing={editing} onClose={() => setEditing(null)} />}
+      {importing && <ImportModal onClose={() => setImporting(false)} />}
     </div>
   );
 }
 
-function EmptyState() {
+function EmptyState({ onImport }: { onImport: () => void }) {
   return (
     <div className="flex flex-col items-center gap-2 py-8 text-center">
       <p className="text-base font-semibold text-ink">Aucune ressource pour l&apos;instant</p>
@@ -150,9 +157,9 @@ function EmptyState() {
         Les membres du personnel apparaissent ici à leur première connexion. Les locaux et les équipements s&apos;ajoutent
         un par un, ou depuis un fichier Excel.
       </p>
-      <Link href="/admin/resources/import" className="font-medium">
-        Importer des locaux et équipements
-      </Link>
+      <Button type="primary" onClick={onImport} className="mt-2">
+        Importer un fichier Excel
+      </Button>
     </div>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
-// Fenêtre « Signaler un créneau » (maquette « User — Signaler une exception »).
+// Fenêtre « Signaler un créneau » (maquette « User — Signaler une exception »),
+// en Modal d'Ant Design.
 //
 // Le parent la monte quand on clique sur un créneau et la démonte à la
-// fermeture : chaque ouverture repart donc d'un état propre. L'élément natif
-// <dialog> gère le focus, la touche Échap et l'arrière-plan.
+// fermeture : chaque ouverture repart donc d'un état propre.
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Alert, Checkbox, Input, Modal, Radio } from "antd";
+import { useState, useTransition } from "react";
 
 import { saveSlot, type SlotState } from "@/actions/availability";
 import { weekDayOf, type ISODate, type Time } from "@/lib/slots";
@@ -44,25 +45,19 @@ export function SlotDialog({
   onSaved: (slots: SlotState[]) => void;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  // Un créneau disponible s'ouvre sur « Indisponible » : c'est le cas courant.
   const [status, setStatus] = useState<SlotStatus>(slot.status === "AVAILABLE" ? "UNAVAILABLE" : slot.status);
   const [comment, setComment] = useState(slot.comment);
   const [repeat, setRepeat] = useState(false);
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [pending, startTransition] = useTransition();
 
-  // Ouverture en mode modal dès le montage.
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
-
   const needsComment = status !== "AVAILABLE";
-  const commentErrors = errors.filter((e) => e.field === "comment");
+  const commentError = errors.find((e) => e.field === "comment")?.message;
   const otherErrors = errors.filter((e) => e.field !== "comment");
   const heading = title.format(new Date(`${slot.date}T00:00:00Z`));
 
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
+  function submit() {
     const local = validateExceptionInput({ status, comment });
     if (local.length > 0) {
       setErrors(local);
@@ -72,7 +67,7 @@ export function SlotDialog({
       const result = await saveSlot({ resourceId, date: slot.date, start: slot.start, status, comment, repeatWeekly: repeat });
       if (result.ok) {
         onSaved(result.slots);
-        dialog.current?.close();
+        onClose();
       } else {
         setErrors(result.errors);
       }
@@ -80,58 +75,48 @@ export function SlotDialog({
   }
 
   return (
-    <dialog
-      ref={dialog}
-      onClose={onClose}
-      aria-labelledby="slot-dialog-title"
-      className="m-auto w-[540px] max-w-[calc(100vw-32px)] rounded-[10px] bg-paper p-0 text-ink shadow-[0_24px_60px_-20px_rgba(29,36,51,0.5)] backdrop:bg-ink/45"
+    <Modal
+      open
+      width={560}
+      title={`${heading.charAt(0).toUpperCase() + heading.slice(1)}, ${slot.start}–${slot.end}`}
+      okText="Enregistrer"
+      cancelText="Annuler"
+      confirmLoading={pending}
+      onOk={submit}
+      onCancel={onClose}
     >
-      <form onSubmit={submit} className="flex flex-col gap-6 p-8">
-        <div className="flex flex-col gap-1.5">
-          <h2 id="slot-dialog-title" className="text-[22px] font-semibold tracking-[-0.01em]">
-            {heading.charAt(0).toUpperCase() + heading.slice(1)}, {slot.start}–{slot.end}
-          </h2>
-          <p className="text-sm text-graphite">Choisissez le statut de ce créneau.</p>
-        </div>
+      <div className="flex flex-col gap-6 pt-2">
+        <p className="text-sm text-graphite">Choisissez le statut de ce créneau.</p>
 
-        {otherErrors.length > 0 && (
-          <div role="alert" className="rounded-md bg-error-tint px-4 py-3 text-sm text-unavailable">
-            {otherErrors.map((e) => (
-              <p key={e.message}>{e.message}</p>
-            ))}
-          </div>
-        )}
+        {otherErrors.length > 0 && <Alert type="error" showIcon title={otherErrors.map((e) => e.message).join(" ")} />}
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-[13px] font-semibold">Statut</legend>
+        <Radio.Group
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setErrors([]);
+          }}
+          aria-label="Statut"
+          className="flex! flex-col gap-2"
+        >
           {OPTIONS.map((option) => (
             <label
               key={option.value}
               className="flex h-13 cursor-pointer items-center gap-3 rounded-lg border border-rule px-3.5 has-checked:border-2 has-checked:border-pen has-checked:bg-pen-tint"
             >
-              <input
-                type="radio"
-                name="status"
-                value={option.value}
-                checked={status === option.value}
-                onChange={() => {
-                  setStatus(option.value);
-                  setErrors([]);
-                }}
-                className="size-4 accent-pen"
-              />
+              <Radio value={option.value} className="me-0!" />
               <span aria-hidden="true" className={`h-3.5 w-5.5 rounded-[3px] ${option.swatch}`} />
               <span className="text-[15px] font-medium">{option.title}</span>
               <span className="ml-auto text-[13px] text-graphite">{option.hint}</span>
             </label>
           ))}
-        </fieldset>
+        </Radio.Group>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="slot-comment" className="text-[13px] font-semibold">
             Commentaire
           </label>
-          <textarea
+          <Input.TextArea
             id="slot-comment"
             rows={3}
             value={comment}
@@ -141,41 +126,21 @@ export function SlotDialog({
             }}
             disabled={!needsComment}
             maxLength={MAX_COMMENT_LENGTH}
+            showCount={needsComment}
+            status={commentError ? "error" : undefined}
             placeholder={needsComment ? "Par exemple : réunion de département" : "Pas de commentaire pour un créneau disponible"}
-            aria-invalid={commentErrors.length > 0 || undefined}
             aria-describedby="slot-comment-help"
-            className="resize-none rounded-md border border-field bg-paper px-3 py-2.5 text-sm leading-normal disabled:bg-desk aria-invalid:border-2 aria-invalid:border-unavailable"
+            className="resize-none!"
           />
-          <p id="slot-comment-help" className={`text-[13px] leading-normal ${commentErrors.length ? "text-unavailable" : "text-graphite"}`}>
-            {commentErrors.length
-              ? commentErrors[0].message
-              : "Obligatoire pour « si nécessaire » et « indisponible ». L'administration le voit dans l'export."}
+          <p id="slot-comment-help" className={`text-[13px] leading-normal ${commentError ? "text-unavailable" : "text-graphite"}`}>
+            {commentError ?? "Obligatoire pour « si nécessaire » et « indisponible ». L'administration le voit dans l'export."}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-5">
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} className="size-4 accent-pen" />
-            Tous les {PLURAL_DAYS[weekDayOf(slot.date)]} de {slot.start} à {slot.end}
-          </label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => dialog.current?.close()}
-              className="h-11 cursor-pointer rounded-md border border-field bg-paper px-5 text-sm font-semibold hover:bg-desk"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="h-11 cursor-pointer rounded-md bg-pen px-5 text-sm font-semibold text-white hover:bg-pen-dark disabled:cursor-wait disabled:opacity-60"
-            >
-              {pending ? "Enregistrement…" : "Enregistrer"}
-            </button>
-          </div>
-        </div>
-      </form>
-    </dialog>
+        <Checkbox checked={repeat} onChange={(e) => setRepeat(e.target.checked)}>
+          Tous les {PLURAL_DAYS[weekDayOf(slot.date)]} de {slot.start} à {slot.end}
+        </Checkbox>
+      </div>
+    </Modal>
   );
 }

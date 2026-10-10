@@ -43,8 +43,7 @@ src/
       page.tsx             Redirige vers /admin/calendar
       calendar/            Configuration (dates, jours, horaires, pauses)
         holidays/          Jours fériés et publication
-      resources/           Liste des ressources
-        import/            Import XLS des locaux et équipements
+      resources/           Ressources : liste, ajout, import Excel (même page)
       availability/        Grille d'une ressource (saisie admin)
       export/              Export JSON
     availability/          Zone USER : sa propre grille
@@ -54,12 +53,13 @@ src/
     availability.ts        Signaler un créneau (personnel et admin)
     calendar.ts            Configuration, jours retirés, publication
     resource.ts            Ajouter / modifier un local ou un équipement
-    import.ts
+    import.ts              Import Excel des locaux et équipements
 
   lib/                     Logique serveur, sans UI
     prisma.ts              Instance Prisma unique
     availability.ts        Créneaux signalés : lire, enregistrer, effacer
     calendar.ts            Lecture / écriture du calendrier (unique)
+    import.ts              Lecture du fichier Excel, création des ressources
     resource.ts            Ressources : lecture, création, modification
     session.ts             requireAdmin() / requireUser()
     slots.ts               Créneaux, jours et semaines du calendrier (SPEC §6)
@@ -72,7 +72,7 @@ src/
     ui/                    Thème Ant Design et fournisseurs (layout racine)
     admin/                 Cadre de la zone admin : barre latérale, contenu
     calendar/              Étapes, formulaires de configuration et de jours fériés
-    resource/              Tableau des ressources, fenêtre d'ajout / modification
+    resource/              Tableau des ressources, fenêtres d'ajout et d'import
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN
 

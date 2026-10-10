@@ -1,6 +1,7 @@
 // Cadre de la zone USER (personnel connecté via Google) : vérification du
 // rôle + en-tête (maquette « Mes disponibilités »).
 
+import { Button } from "antd";
 import Link from "next/link";
 
 import { logout } from "@/actions/auth";
@@ -28,9 +29,7 @@ export default async function AvailabilityLayout({ children }: LayoutProps<"/ava
             <span className="text-[13px] leading-snug text-graphite">{user.email}</span>
           </div>
           <form action={logout}>
-            <button type="submit" className="cursor-pointer text-sm text-pen hover:text-pen-dark">
-              Se déconnecter
-            </button>
+            <Button htmlType="submit">Se déconnecter</Button>
           </form>
         </div>
       </header>
