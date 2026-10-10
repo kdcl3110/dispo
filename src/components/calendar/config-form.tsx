@@ -16,7 +16,6 @@ import { saveCalendar } from "@/actions/calendar";
 import type { CalendarConfig } from "@/lib/calendar";
 import { calendarDays, generateSlots, toMin } from "@/lib/slots";
 import {
-  breakEndSuggestions,
   calendarWeeks,
   MAX_WEEKS,
   validateCalendarForm,
@@ -49,6 +48,7 @@ const DEFAULTS: CalendarConfig = {
   dayStart: "08:00",
   dayEnd: "18:00",
   slotDuration: 120,
+  slotGap: 0,
   breaks: [{ name: "Pause déjeuner", start: "12:00", end: "14:00" }],
 };
 
@@ -61,6 +61,7 @@ interface FormValues {
   dayStart: Dayjs | null;
   dayEnd: Dayjs | null;
   slotDuration: number;
+  slotGap: number;
   breaks: { name: string; start: Dayjs | null; end: Dayjs | null }[];
 }
 
@@ -74,6 +75,7 @@ function toValues(config: CalendarConfig): FormValues {
     dayStart: toTime(config.dayStart),
     dayEnd: toTime(config.dayEnd),
     slotDuration: config.slotDuration,
+    slotGap: config.slotGap,
     breaks: config.breaks.map((b) => ({ name: b.name, start: toTime(b.start), end: toTime(b.end) })),
   };
 }
@@ -87,6 +89,7 @@ function toConfig(values: Partial<FormValues>): CalendarConfig {
     dayStart: values.dayStart?.format("HH:mm") ?? "",
     dayEnd: values.dayEnd?.format("HH:mm") ?? "",
     slotDuration: values.slotDuration ?? 0,
+    slotGap: values.slotGap ?? 0,
     breaks: (values.breaks ?? []).map((b) => ({
       name: b?.name ?? "",
       start: b?.start?.format("HH:mm") ?? "",
@@ -106,6 +109,7 @@ function toFormData(config: CalendarConfig, calendarId?: string) {
   data.set("dayStart", config.dayStart);
   data.set("dayEnd", config.dayEnd);
   data.set("slotDuration", String(config.slotDuration));
+  data.set("slotGap", String(config.slotGap));
   config.breaks.forEach((b, i) => {
     data.set(`breaks.${i}.name`, b.name);
     data.set(`breaks.${i}.start`, b.start);
@@ -256,8 +260,6 @@ export function CalendarConfigForm({
             {(fields, { add, remove }) => (
               <div className="flex flex-col gap-3">
                 {fields.map(({ key, name }) => {
-                  const endInvalid = checking && liveErrors.some((e) => e.field === `breaks.${name}.end`);
-                  const suggestions = endInvalid ? breakEndSuggestions(config, name) : [];
                   return (
                     <div key={key} className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-start gap-2.5">
@@ -275,23 +277,6 @@ export function CalendarConfigForm({
                           Supprimer
                         </Button>
                       </div>
-                      {suggestions.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm text-graphite">Fins de pause qui fonctionnent :</span>
-                          {suggestions.map((time) => (
-                            <Button
-                              key={time}
-                              size="small"
-                              onClick={() => {
-                                form.setFieldValue(["breaks", name, "end"], toTime(time));
-                                revalidate();
-                              }}
-                            >
-                              {time}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   );
                 })}

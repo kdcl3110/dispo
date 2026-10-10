@@ -4,7 +4,7 @@
 // rattachée au champ concerné : le formulaire peut ainsi les afficher sous
 // leurs champs respectifs, en une fois.
 
-import { daySegments, toHHMM, toMin, weekDayOf, type ISODate, type Time } from "@/lib/slots";
+import { generateSlots, toMin, weekDayOf, type ISODate, type Time } from "@/lib/slots";
 
 export const MAX_WEEKS = 15;
 
@@ -18,6 +18,7 @@ export interface CalendarConfigInput {
   dayStart: Time;
   dayEnd: Time;
   slotDuration: number;
+  slotGap?: number; // intercours, en minutes (0 si absent)
   breaks: { name: string; start: Time; end: Time }[];
   holidays: { date: ISODate; label?: string | null }[];
 }
@@ -107,31 +108,6 @@ export function validateCalendarForm(
   });
 }
 
-// Fins possibles pour la pause n° `index` : celles qui laissent après elle une
-// plage multiple de la durée d'un créneau. Renvoie les 3 plus proches de la
-// fin actuelle, dans l'ordre chronologique ([] si les horaires sont invalides).
-export function breakEndSuggestions(config: Omit<CalendarConfigInput, "holidays">, index: number): Time[] {
-  const { breaks, dayEnd, slotDuration } = config;
-  if (!isTime(dayEnd) || !(slotDuration > 0) || breaks.some((b) => !isTime(b.start) || !isTime(b.end))) {
-    return [];
-  }
-
-  const sorted = breaks.map((b, i) => ({ ...b, i })).sort((a, b) => toMin(a.start) - toMin(b.start));
-  const position = sorted.findIndex((b) => b.i === index);
-  const from = toMin(sorted[position].start);
-  const limit = position + 1 < sorted.length ? toMin(sorted[position + 1].start) : toMin(dayEnd);
-  const current = toMin(sorted[position].end);
-
-  const candidates: number[] = [];
-  for (let t = limit - slotDuration; t > from; t -= slotDuration) candidates.push(t);
-
-  return candidates
-    .sort((a, b) => Math.abs(a - current) - Math.abs(b - current))
-    .slice(0, 3)
-    .sort((a, b) => a - b)
-    .map(toHHMM);
-}
-
 // ---------------------------------------------------------------- jours retirés
 
 export const MAX_LABEL_LENGTH = 80;
@@ -214,6 +190,10 @@ export function validateCalendarConfig(input: CalendarConfigInput): ValidationEr
   const durationOk = Number.isInteger(input.slotDuration) && input.slotDuration > 0;
   if (!durationOk) add("slotDuration", "Choisissez la durée d'un créneau.");
 
+  const gap = input.slotGap ?? 0;
+  const gapOk = Number.isInteger(gap) && gap >= 0 && gap <= 240;
+  if (!gapOk) add("slotGap", "L'intercours doit être compris entre 0 et 4 heures.");
+
   // --- Pauses (règle 8) : nommées, bien formées, dans la journée, disjointes
   let breaksOk = true;
   input.breaks.forEach((b, i) => {
@@ -253,34 +233,11 @@ export function validateCalendarConfig(input: CalendarConfigInput): ValidationEr
     }
   }
 
-  // --- Segments multiples de la durée (règle 7) : seulement si tout le reste
-  // de la journée est cohérent, sinon le message n'aurait pas de sens.
-  if (hoursOk && durationOk && breaksOk) {
-    const segments = daySegments(input);
-    const last = segments.length - 1;
-    segments.forEach(([from, to], k) => {
-      const length = to - from;
-      // Un segment commence au début de la journée, ou à la fin d'une pause.
-      const field = k === 0 ? "dayStart" : `breaks.${sorted[k - 1].index}.end`;
-
-      // Segment vide : une pause touche un bord de la journée ou une autre
-      // pause. Le message propose la correction plutôt que « de 8 h à 8 h ».
-      if (length <= 0 && k === 0) {
-        const b = sorted[0];
-        add(`breaks.${b.index}.start`, `Cette pause commence avec la journée. Faites plutôt commencer la journée à ${b.end}.`);
-      } else if (length <= 0 && k === last) {
-        const b = sorted[k - 1];
-        add(`breaks.${b.index}.end`, `Cette pause finit avec la journée. Faites plutôt finir la journée à ${b.start}.`);
-      } else if (length <= 0) {
-        add(`breaks.${sorted[k].index}.start`, "Cette pause suit directement la précédente. Réunissez-les en une seule.");
-      } else if (length % input.slotDuration !== 0) {
-        add(
-          field,
-          `De ${toHHMM(from)} à ${toHHMM(to)}, la plage dure ${formatDuration(length)}. ` +
-            `Ce n'est pas un multiple de ${formatDuration(input.slotDuration)} : le dernier créneau serait coupé.`,
-        );
-      }
-    });
+  // --- Au moins un créneau (règle 7) : seulement si le reste de la journée
+  // est cohérent. Le temps qui resterait en fin de journée n'est pas une
+  // erreur : l'aperçu l'affiche à titre d'information.
+  if (hoursOk && durationOk && gapOk && breaksOk && generateSlots({ ...input, slotGap: gap }).length === 0) {
+    add("slotDuration", "Aucun créneau ne tient dans la journée avec ces réglages. Raccourcissez la durée ou élargissez les horaires.");
   }
 
   // --- Jours fériés (règle 11) : dans la période, sans doublon

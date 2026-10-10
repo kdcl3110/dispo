@@ -56,6 +56,7 @@ function readForm(formData: FormData): CalendarConfig {
     dayStart: text("dayStart"),
     dayEnd: text("dayEnd"),
     slotDuration: Number(text("slotDuration")),
+    slotGap: Number(text("slotGap") || 0),
     // Une ligne de pause supprimée côté client laisse un trou dans les indices.
     breaks: breaks.filter(Boolean),
   };

@@ -64,6 +64,7 @@ model Calendar {
   dayStart     String // "08:00"
   dayEnd       String // "18:00"
   slotDuration Int // en minutes
+  slotGap      Int      @default(0) // intercours entre deux créneaux, en minutes
 
   publishedAt DateTime? // null = brouillon, invisible des USER
   createdAt   DateTime  @default(now())

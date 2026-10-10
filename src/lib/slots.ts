@@ -31,7 +31,8 @@ export interface BreakRange {
 export interface DayConfig {
   dayStart: Time;
   dayEnd: Time;
-  slotDuration: number; // en minutes
+  slotDuration: number; // en minutes, la même pour tous les créneaux
+  slotGap?: number; // intercours entre deux créneaux, en minutes (0 par défaut)
   breaks?: BreakRange[];
 }
 
@@ -61,36 +62,46 @@ export function toHHMM(minutes: number): Time {
   return `${hh}:${mm}`;
 }
 
-// Découpe la journée en segments [début, fin] (en minutes), séparés par les
-// pauses. Une journée sans pause donne un seul segment.
-export function daySegments({ dayStart, dayEnd, breaks = [] }: DayConfig): [number, number][] {
-  const sorted = [...breaks].sort((a, b) => toMin(a.start) - toMin(b.start));
-  const segments: [number, number][] = [];
-  let cursor = toMin(dayStart);
-  for (const b of sorted) {
-    segments.push([cursor, toMin(b.start)]);
-    cursor = toMin(b.end);
-  }
-  segments.push([cursor, toMin(dayEnd)]);
-  return segments;
-}
-
-// Créneaux d'une journée, pauses exclues. Les id sont déterministes : la
-// numérotation court sur toute la journée en sautant les pauses.
+// Créneaux d'une journée. Tous ont la même durée ; on enchaîne
+//   créneau → intercours → créneau → …
+// Si un créneau mordait sur une pause, il repart à la fin de la pause (sans
+// intercours en plus : la pause en tient lieu). On s'arrête quand le créneau
+// suivant ne tient plus avant la fin de journée.
+//
+// Exemple HE2B : 08:00–18:00, 2 h, intercours 30 min, pause 12:30–13:30
+//   → 08:00–10:00, 10:30–12:30, 13:30–15:30, 16:00–18:00.
+//
+// Les id (s1, s2…) suivent l'ordre de la journée : ils sont déterministes.
 export function generateSlots(config: DayConfig): Slot[] {
-  // Garde-fou : une durée nulle ou négative bouclerait à l'infini.
-  if (!(config.slotDuration > 0)) {
-    throw new Error(`Durée de créneau invalide : ${config.slotDuration}.`);
-  }
+  const duration = config.slotDuration;
+  const gap = config.slotGap ?? 0;
+  // Garde-fous : une durée nulle ou un intercours négatif boucleraient à l'infini.
+  if (!(duration > 0)) throw new Error(`Durée de créneau invalide : ${duration}.`);
+  if (!(gap >= 0)) throw new Error(`Intercours invalide : ${gap}.`);
 
+  const breaks = (config.breaks ?? []).map((b) => ({ start: toMin(b.start), end: toMin(b.end) }));
+  const end = toMin(config.dayEnd);
   const slots: Slot[] = [];
-  let i = 1;
-  for (const [from, to] of daySegments(config)) {
-    for (let t = from; t + config.slotDuration <= to; t += config.slotDuration) {
-      slots.push({ id: `s${i++}`, start: toHHMM(t), end: toHHMM(t + config.slotDuration) });
+
+  let t = toMin(config.dayStart);
+  while (t + duration <= end) {
+    // Une pause chevauche [t, t + durée] : on reprend à sa fin.
+    const blocking = breaks.find((b) => t < b.end && t + duration > b.start);
+    if (blocking) {
+      t = blocking.end;
+      continue;
     }
+    slots.push({ id: `s${slots.length + 1}`, start: toHHMM(t), end: toHHMM(t + duration) });
+    t += duration + gap;
   }
   return slots;
+}
+
+// Minutes inutilisées entre la fin du dernier créneau et la fin de journée.
+// Ce n'est pas une erreur, juste une information pour l'aperçu.
+export function unusedMinutes(config: DayConfig) {
+  const slots = generateSlots(config);
+  return slots.length ? toMin(config.dayEnd) - toMin(slots.at(-1)!.end) : 0;
 }
 
 // Clé d'un créneau précis : "2026-09-24|14:00". Sert d'index aux créneaux

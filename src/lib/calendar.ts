@@ -20,6 +20,7 @@ export interface CalendarConfig {
   dayStart: Time;
   dayEnd: Time;
   slotDuration: number;
+  slotGap: number; // intercours, en minutes
   breaks: { name: string; start: Time; end: Time }[];
 }
 
@@ -66,6 +67,7 @@ function toCalendar(calendar: DbCalendar): Calendar {
     dayStart: calendar.dayStart,
     dayEnd: calendar.dayEnd,
     slotDuration: calendar.slotDuration,
+    slotGap: calendar.slotGap,
     publishedAt: calendar.publishedAt,
     breaks: calendar.breaks.map(({ name, start, end }) => ({ name, start, end })),
     holidays: calendar.holidays.map((h) => ({ date: toISODate(h.date), label: h.label })),
@@ -129,6 +131,7 @@ function configData(config: CalendarConfig) {
     dayStart: config.dayStart,
     dayEnd: config.dayEnd,
     slotDuration: config.slotDuration,
+    slotGap: config.slotGap,
   };
 }
 
