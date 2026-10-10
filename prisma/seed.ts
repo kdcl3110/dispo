@@ -6,12 +6,25 @@ import bcrypt from 'bcryptjs'
 
 import { prisma } from '../src/lib/prisma'
 
+const MIN_PASSWORD_LENGTH = 12
+const FORBIDDEN_WORDS = ['changeme', 'password', 'motdepasse', 'admin', '123456', 'azerty', 'qwerty']
+
 async function main() {
   const username = process.env.SEED_ADMIN_USERNAME?.trim()
   const password = process.env.SEED_ADMIN_PASSWORD
 
   if (!username || !password) {
     throw new Error('SEED_ADMIN_USERNAME et SEED_ADMIN_PASSWORD doivent être définis.')
+  }
+
+  // Ce compte ouvre toute l'administration : pas de mot de passe court ni
+  // de valeur d'exemple, même en local (le .env local finit souvent en prod).
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`SEED_ADMIN_PASSWORD doit faire au moins ${MIN_PASSWORD_LENGTH} caractères.`)
+  }
+  const lower = password.toLowerCase()
+  if (FORBIDDEN_WORDS.some((word) => lower.includes(word)) || lower.includes(username.toLowerCase())) {
+    throw new Error("SEED_ADMIN_PASSWORD est trop facile à deviner : évitez « changeme », « password », « admin » et l'identifiant.")
   }
 
   const passwordHash = await bcrypt.hash(password, 12)
