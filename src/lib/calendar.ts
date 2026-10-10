@@ -1,16 +1,17 @@
-// Lecture et écriture du calendrier en base — SPEC.md §5 et §6.
+// Lecture et écriture des calendriers en base — SPEC.md §5 et §6.
 //
-// Il n'existe qu'UN calendrier, partagé par tout le personnel. Ce fichier ne
-// vérifie ni les droits ni la validité : c'est le rôle de l'action appelante
-// (src/actions/calendar.ts) et de src/lib/validation/calendar.ts.
+// Il peut y avoir plusieurs calendriers (quadrimestres, conférences,
+// événements), chacun avec ses horaires, ses congés, sa publication et ses
+// créneaux signalés. Ce fichier ne vérifie ni les droits ni la validité :
+// c'est le rôle des actions (src/actions/) et de src/lib/validation/calendar.ts.
 
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { toISODate, type ISODate, type Time } from "@/lib/slots";
 
-// Configuration saisie dans l'écran « Configuration » (sans les jours fériés,
-// qui ont leur propre écran).
+// Configuration saisie dans le formulaire « Horaires » (sans les congés, qui
+// ont leur propre panneau).
 export interface CalendarConfig {
   name: string;
   startDate: ISODate;
@@ -29,21 +30,33 @@ export interface Calendar extends CalendarConfig {
   holidays: { date: ISODate; label: string | null }[];
 }
 
+// Brouillon : invisible du personnel. Publié : ouvert à la saisie.
+// Terminé : publié, et sa date de fin est passée.
+export type CalendarStatus = "draft" | "published" | "finished";
+
+export interface CalendarRow {
+  id: string;
+  name: string;
+  startDate: ISODate;
+  endDate: ISODate;
+  publishedAt: Date | null;
+  status: CalendarStatus;
+  exceptions: number; // créneaux signalés
+}
+
 // "YYYY-MM-DD" → Date à minuit UTC, le format attendu par les colonnes @db.Date.
 function toDbDate(date: ISODate) {
   return new Date(`${date}T00:00:00Z`);
 }
 
-export async function getCalendar(): Promise<Calendar | null> {
-  const calendar = await prisma.calendar.findFirst({
-    orderBy: { createdAt: "asc" },
-    include: {
-      breaks: { orderBy: { start: "asc" } },
-      holidays: { orderBy: { date: "asc" } },
-    },
-  });
-  if (!calendar) return null;
+const WITH_DETAILS = {
+  breaks: { orderBy: { start: "asc" } },
+  holidays: { orderBy: { date: "asc" } },
+} as const;
 
+type DbCalendar = NonNullable<Awaited<ReturnType<typeof prisma.calendar.findFirst<{ include: typeof WITH_DETAILS }>>>>;
+
+function toCalendar(calendar: DbCalendar): Calendar {
   return {
     id: calendar.id,
     name: calendar.name,
@@ -59,9 +72,93 @@ export async function getCalendar(): Promise<Calendar | null> {
   };
 }
 
+export function statusOf(calendar: { publishedAt: Date | null; endDate: ISODate }, today = toISODate(new Date())): CalendarStatus {
+  if (!calendar.publishedAt) return "draft";
+  return calendar.endDate < today ? "finished" : "published";
+}
+
+// ---------------------------------------------------------------- lecture
+
+export async function getCalendar(id: string): Promise<Calendar | null> {
+  const calendar = await prisma.calendar.findUnique({ where: { id }, include: WITH_DETAILS });
+  return calendar ? toCalendar(calendar) : null;
+}
+
+// PROVISOIRE : le premier calendrier créé, comme avant le passage à plusieurs
+// calendriers. Utilisé par les écrans pas encore adaptés ; à supprimer ensuite.
+export async function getDefaultCalendar(): Promise<Calendar | null> {
+  const calendar = await prisma.calendar.findFirst({ orderBy: { createdAt: "asc" }, include: WITH_DETAILS });
+  return calendar ? toCalendar(calendar) : null;
+}
+
+// Tous les calendriers, du plus récent au plus ancien (date de début), avec
+// leur état et leur nombre de créneaux signalés. `publishedOnly` : la vue du
+// personnel, qui ne voit que les calendriers publiés.
+export async function listCalendars({ publishedOnly = false } = {}): Promise<CalendarRow[]> {
+  const calendars = await prisma.calendar.findMany({
+    where: publishedOnly ? { publishedAt: { not: null } } : undefined,
+    orderBy: { startDate: "desc" },
+    include: { _count: { select: { availabilities: true } } },
+  });
+  return calendars.map((c) => {
+    const row = { publishedAt: c.publishedAt, endDate: toISODate(c.endDate) };
+    return {
+      id: c.id,
+      name: c.name,
+      startDate: toISODate(c.startDate),
+      endDate: row.endDate,
+      publishedAt: c.publishedAt,
+      status: statusOf(row),
+      exceptions: c._count.availabilities,
+    };
+  });
+}
+
 // Nombre de créneaux déjà signalés sur ce calendrier.
 export async function countExceptions(calendarId: string) {
   return prisma.availability.count({ where: { calendarId } });
+}
+
+// ---------------------------------------------------------------- écriture
+
+function configData(config: CalendarConfig) {
+  return {
+    name: config.name.trim(),
+    startDate: toDbDate(config.startDate),
+    endDate: toDbDate(config.endDate),
+    weekDays: config.weekDays,
+    dayStart: config.dayStart,
+    dayEnd: config.dayEnd,
+    slotDuration: config.slotDuration,
+  };
+}
+
+const breaksOf = (config: CalendarConfig) =>
+  config.breaks.map((b) => ({ name: b.name.trim(), start: b.start, end: b.end }));
+
+// Crée un calendrier (brouillon) et renvoie son identifiant.
+export async function createCalendar(config: CalendarConfig) {
+  const calendar = await prisma.calendar.create({
+    data: { ...configData(config), breaks: { create: breaksOf(config) } },
+    select: { id: true },
+  });
+  return calendar.id;
+}
+
+// Met à jour la configuration. Les pauses sont remplacées en bloc, dans la
+// même transaction : jamais d'état intermédiaire où le calendrier aurait ses
+// nouvelles heures et ses anciennes pauses.
+export async function updateCalendarConfig(id: string, config: CalendarConfig) {
+  await prisma.$transaction([
+    prisma.break.deleteMany({ where: { calendarId: id } }),
+    prisma.calendar.update({ where: { id }, data: { ...configData(config), breaks: { create: breaksOf(config) } } }),
+  ]);
+}
+
+// Supprime un calendrier avec ses pauses, congés et créneaux signalés
+// (cascade du schéma). L'appelant décide si c'est permis.
+export async function deleteCalendar(id: string) {
+  await prisma.calendar.delete({ where: { id } });
 }
 
 // Remplace en bloc les jours retirés du calendrier.
@@ -80,35 +177,5 @@ export async function publishCalendar(calendarId: string) {
   await prisma.calendar.updateMany({
     where: { id: calendarId, publishedAt: null },
     data: { publishedAt: new Date() },
-  });
-}
-
-// Crée le calendrier s'il n'existe pas, sinon le met à jour. Les pauses sont
-// remplacées en bloc, dans la même transaction : jamais d'état intermédiaire
-// où le calendrier aurait ses nouvelles heures et ses anciennes pauses.
-export async function saveCalendarConfig(config: CalendarConfig) {
-  const data = {
-    name: config.name.trim(),
-    startDate: toDbDate(config.startDate),
-    endDate: toDbDate(config.endDate),
-    weekDays: config.weekDays,
-    dayStart: config.dayStart,
-    dayEnd: config.dayEnd,
-    slotDuration: config.slotDuration,
-  };
-  const breaks = config.breaks.map((b) => ({ name: b.name.trim(), start: b.start, end: b.end }));
-
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.calendar.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } });
-
-    if (!existing) {
-      return tx.calendar.create({ data: { ...data, breaks: { create: breaks } } });
-    }
-
-    await tx.break.deleteMany({ where: { calendarId: existing.id } });
-    return tx.calendar.update({
-      where: { id: existing.id },
-      data: { ...data, breaks: { create: breaks } },
-    });
   });
 }

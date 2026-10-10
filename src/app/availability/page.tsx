@@ -3,14 +3,14 @@
 import { AvailabilityBoard } from "@/components/availability-grid/board";
 import type { ExceptionMap } from "@/components/availability-grid/grid";
 import { getExceptions } from "@/lib/availability";
-import { getCalendar } from "@/lib/calendar";
+import { getDefaultCalendar } from "@/lib/calendar";
 import { getPersonResource } from "@/lib/resource";
 import { requireUser } from "@/lib/session";
 import { calendarDays, generateSlots, slotKey } from "@/lib/slots";
 
 export default async function MyAvailabilityPage() {
   const user = await requireUser();
-  const [calendar, resource] = await Promise.all([getCalendar(), getPersonResource(user.id)]);
+  const [calendar, resource] = await Promise.all([getDefaultCalendar(), getPersonResource(user.id)]);
 
   // Avant publication, le personnel ne voit rien (SPEC §10, règle 5).
   if (!calendar?.publishedAt) {

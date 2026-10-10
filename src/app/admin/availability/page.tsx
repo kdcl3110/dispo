@@ -8,7 +8,7 @@ import { ResourcePicker } from "@/components/admin/resource-picker";
 import { AvailabilityBoard } from "@/components/availability-grid/board";
 import type { ExceptionMap } from "@/components/availability-grid/grid";
 import { getExceptions } from "@/lib/availability";
-import { getCalendar } from "@/lib/calendar";
+import { getDefaultCalendar } from "@/lib/calendar";
 import { listResources } from "@/lib/resource";
 import { requireAdmin } from "@/lib/session";
 import { calendarDays, generateSlots, slotKey } from "@/lib/slots";
@@ -16,7 +16,7 @@ import { calendarDays, generateSlots, slotKey } from "@/lib/slots";
 export default async function AdminAvailabilityPage({ searchParams }: PageProps<"/admin/availability">) {
   await requireAdmin();
 
-  const [calendar, resources] = await Promise.all([getCalendar(), listResources()]);
+  const [calendar, resources] = await Promise.all([getDefaultCalendar(), listResources()]);
 
   if (!calendar) {
     return (

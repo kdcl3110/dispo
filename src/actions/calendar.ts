@@ -7,10 +7,11 @@ import { revalidatePath } from "next/cache";
 
 import {
   countExceptions,
-  getCalendar,
+  getDefaultCalendar,
   publishCalendar,
   replaceHolidays,
-  saveCalendarConfig,
+  createCalendar,
+  updateCalendarConfig,
   type CalendarConfig,
 } from "@/lib/calendar";
 import { requireAdmin } from "@/lib/session";
@@ -65,7 +66,7 @@ export async function saveCalendar(
   await requireAdmin();
 
   const values = readForm(formData);
-  const current = await getCalendar();
+  const current = await getDefaultCalendar();
 
   // Les jours fériés ne sont pas dans ce formulaire, mais ils doivent rester
   // dans la période (règle 11) : on valide avec ceux déjà enregistrés.
@@ -83,7 +84,8 @@ export async function saveCalendar(
 
   if (errors.length > 0) return { status: "invalid", errors, values };
 
-  await saveCalendarConfig(values);
+  if (current) await updateCalendarConfig(current.id, values);
+  else await createCalendar(values);
   revalidatePath("/admin", "layout");
   return { status: "saved", errors: [], values };
 }
@@ -109,7 +111,7 @@ export async function saveHolidays(
 ): Promise<HolidaysFormState> {
   await requireAdmin();
 
-  const calendar = await getCalendar();
+  const calendar = await getDefaultCalendar();
   if (!calendar) {
     return { status: "invalid", errors: [{ field: "form", message: "Configurez d'abord le calendrier." }] };
   }
@@ -141,7 +143,7 @@ export async function saveHolidays(
 export async function publish(): Promise<HolidaysFormState> {
   await requireAdmin();
 
-  const calendar = await getCalendar();
+  const calendar = await getDefaultCalendar();
   if (!calendar) {
     return { status: "invalid", errors: [{ field: "form", message: "Configurez d'abord le calendrier." }] };
   }

@@ -7,7 +7,7 @@
 import { revalidatePath } from "next/cache";
 
 import { addExceptions, clearExceptions, getExceptions, saveSlots } from "@/lib/availability";
-import { getCalendar } from "@/lib/calendar";
+import { getDefaultCalendar } from "@/lib/calendar";
 import { getResource } from "@/lib/resource";
 import { requireSession } from "@/lib/session";
 import { calendarDays, calendarWeekGrid, slotKey, weekDayOf, type ISODate, type Time } from "@/lib/slots";
@@ -48,7 +48,7 @@ export async function saveSlot(input: SaveSlotInput): Promise<SaveSlotResult> {
     comment: String(input?.comment ?? ""),
   };
 
-  const [resource, calendar] = await Promise.all([getResource(String(input?.resourceId ?? "")), getCalendar()]);
+  const [resource, calendar] = await Promise.all([getResource(String(input?.resourceId ?? "")), getDefaultCalendar()]);
   if (!resource || !calendar) {
     return { ok: false, errors: [{ field: "form", message: "Ce créneau n'existe plus. Rechargez la page." }] };
   }
@@ -83,7 +83,7 @@ export async function saveSlot(input: SaveSlotInput): Promise<SaveSlotResult> {
 // Charge la ressource et le calendrier, puis vérifie les droits (règles 5 et 6).
 async function loadForWrite(resourceId: unknown) {
   const user = await requireSession();
-  const [resource, calendar] = await Promise.all([getResource(String(resourceId ?? "")), getCalendar()]);
+  const [resource, calendar] = await Promise.all([getResource(String(resourceId ?? "")), getDefaultCalendar()]);
   if (!resource || !calendar) {
     return { error: { field: "form", message: "Cette grille n'existe plus. Rechargez la page." } as ValidationError };
   }

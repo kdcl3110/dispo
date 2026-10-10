@@ -5,12 +5,12 @@ import { Button, Divider, Tooltip } from "antd";
 
 import { CalendarOutlined, LockOutlined } from "@/components/ui/icons";
 import { UserMenu } from "@/components/ui/user-menu";
-import { getCalendar } from "@/lib/calendar";
+import { getDefaultCalendar } from "@/lib/calendar";
 import { requireUser } from "@/lib/session";
 
 export default async function AvailabilityLayout({ children }: LayoutProps<"/availability">) {
   const user = await requireUser();
-  const calendar = await getCalendar();
+  const calendar = await getDefaultCalendar();
 
   return (
     <div className="flex flex-1 flex-col">

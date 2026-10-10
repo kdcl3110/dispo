@@ -5,7 +5,7 @@
 import { CalendarOverview } from "@/components/calendar/overview";
 import { CalendarOutlined } from "@/components/ui/icons";
 import { PageHeader } from "@/components/ui/page-header";
-import { countExceptions, getCalendar } from "@/lib/calendar";
+import { countExceptions, getDefaultCalendar } from "@/lib/calendar";
 import { requireAdmin } from "@/lib/session";
 
 export default async function CalendarPage() {
@@ -13,7 +13,7 @@ export default async function CalendarPage() {
   // parallèle : la page ne doit pas lire la base sans son propre contrôle.
   await requireAdmin();
 
-  const calendar = await getCalendar();
+  const calendar = await getDefaultCalendar();
   const exceptions = calendar ? await countExceptions(calendar.id) : 0;
 
   return (

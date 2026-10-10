@@ -8,7 +8,7 @@
 
 import "server-only";
 
-import { getCalendar } from "@/lib/calendar";
+import { getDefaultCalendar } from "@/lib/calendar";
 import { prisma } from "@/lib/prisma";
 import { generateSlots, toISODate } from "@/lib/slots";
 
@@ -40,7 +40,7 @@ export type ExportDocument = NonNullable<Awaited<ReturnType<typeof buildExport>>
 
 // null s'il n'y a pas encore de calendrier : rien à exporter.
 export async function buildExport(exportedBy: string, now = new Date()) {
-  const calendar = await getCalendar();
+  const calendar = await getDefaultCalendar();
   if (!calendar) return null;
 
   const slots = generateSlots(calendar);
