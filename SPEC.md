@@ -189,7 +189,7 @@ model Availability {
   updatedBy   User              @relation("EditedBy", fields: [updatedById], references: [id])
   updatedAt   DateTime          @updatedAt
 
-  @@unique([resourceId, date, start])    // un seul statut par ressource × jour × tranche
+  @@unique([calendarId, resourceId, date, start]) // un seul statut par calendrier × ressource × jour × tranche
 }
 ```
 
@@ -491,11 +491,11 @@ Puis en parallèle :
 
 - Rôles strictement séparés ; le rôle découle du provider. Pas d'adapter Prisma.
 - Connexion Google **réservée au personnel** (`@he2b.be`). Les étudiants n'ont pas accès à l'application.
-- **Un seul** calendrier partagé, **15 semaines calendaires au maximum**.
-- Le calendrier n'est visible des `USER` qu'une fois **publié**.
+- **Plusieurs calendriers** (quadrimestres, conférences, événements…), chacun de **15 semaines calendaires au maximum**. Le personnel voit **tous les calendriers publiés** ; chaque calendrier a **ses propres** congés, sa publication et ses disponibilités (une exception dans l'un ne compte pas dans les autres). Les ressources sont communes à tous les calendriers. *(Décision du 10 octobre 2026, qui remplace « un seul calendrier partagé ».)*
+- Un calendrier n'est visible des `USER` qu'une fois **publié**.
 - Les slots sont **dérivés** de la config (pauses et jours fériés déduits), **jamais persistés**.
 - **Tout est disponible par défaut.** `Availability` ne stocke que les exceptions ; `AVAILABLE` n'est jamais écrit et un retour à disponible supprime la ligne.
 - Trois statuts : `available`, `if_needed`, `unavailable`. Commentaire obligatoire pour les deux derniers.
-- Une exception est identifiée par `(resource, date, start)`.
+- Une exception est identifiée par `(calendar, resource, date, start)`.
 - `slotId` n'existe que dans le JSON d'export, calculé de façon déterministe.
 - Import XLS = locaux + équipements seulement.

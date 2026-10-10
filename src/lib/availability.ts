@@ -46,7 +46,7 @@ export async function getExceptions(calendarId: string, resourceId: string): Pro
 // Applique un même statut à un créneau (heure de début) sur une ou plusieurs
 // dates, en une transaction : tout est écrit, ou rien.
 //  - IF_NEEDED / UNAVAILABLE : la ligne est créée, ou mise à jour si elle
-//    existe (la contrainte unique ressource × date × heure l'impose) ;
+//    existe (la contrainte unique calendrier × ressource × date × heure l'impose) ;
 //  - AVAILABLE : la ligne est supprimée, jamais écrite.
 export async function saveSlots(input: {
   calendarId: string;
@@ -64,11 +64,11 @@ export async function saveSlots(input: {
     input.dates.map((iso) => {
       const date = toDbDate(iso);
       if (status === "AVAILABLE") {
-        return prisma.availability.deleteMany({ where: { resourceId, date, start } });
+        return prisma.availability.deleteMany({ where: { calendarId, resourceId, date, start } });
       }
       const data = { calendarId, status, comment, updatedById };
       return prisma.availability.upsert({
-        where: { resourceId_date_start: { resourceId, date, start } },
+        where: { calendarId_resourceId_date_start: { calendarId, resourceId, date, start } },
         update: data,
         create: { ...data, resourceId, date, start },
       });
@@ -77,7 +77,7 @@ export async function saveSlots(input: {
 }
 
 // Ajoute des créneaux signalés en lot, SANS toucher à ceux qui existent déjà
-// (skipDuplicates sur la contrainte ressource × date × heure). Renvoie le
+// (skipDuplicates sur la contrainte calendrier × ressource × date × heure). Renvoie le
 // nombre de lignes réellement créées.
 export async function addExceptions(input: {
   calendarId: string;

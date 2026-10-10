@@ -132,5 +132,7 @@ model Availability {
   updatedBy   User     @relation("EditedBy", fields: [updatedById], references: [id])
   updatedAt   DateTime @updatedAt
 
-  @@unique([resourceId, date, start]) // un seul statut par ressource × jour × tranche
+  // Un seul statut par calendrier × ressource × jour × tranche : deux calendriers
+  // qui se chevauchent (une conférence pendant un quadrimestre) ont chacun le leur.
+  @@unique([calendarId, resourceId, date, start])
 }
