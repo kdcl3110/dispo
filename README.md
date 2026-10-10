@@ -47,7 +47,8 @@ src/
       availability/        Grille d'une ressource (saisie admin)
       export/              Export JSON : résumé et aperçu
         download/route.ts  Téléchargement du fichier
-    availability/          Zone USER : sa propre grille
+    availability/          Zone USER : ses calendriers publiés (un seul → sa grille)
+      [id]/                La grille d'un calendrier
 
   actions/                 Server Actions, un fichier par domaine
     auth.ts                Connexion Google / admin, déconnexion

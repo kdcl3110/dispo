@@ -24,6 +24,7 @@ export {
   LockOutlined,
   LogoutOutlined,
   QuestionCircleOutlined,
+  RightOutlined,
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";

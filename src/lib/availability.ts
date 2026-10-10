@@ -106,3 +106,10 @@ export async function clearExceptions(calendarId: string, resourceId: string) {
   const { count } = await prisma.availability.deleteMany({ where: { calendarId, resourceId } });
   return count;
 }
+
+// Nombre de créneaux signalés par une ressource, calendrier par calendrier :
+// { [calendarId]: nombre }. Sert à la liste « Mes calendriers ».
+export async function countExceptionsByCalendar(resourceId: string): Promise<Record<string, number>> {
+  const groups = await prisma.availability.groupBy({ by: ["calendarId"], where: { resourceId }, _count: true });
+  return Object.fromEntries(groups.map((g) => [g.calendarId, g._count]));
+}

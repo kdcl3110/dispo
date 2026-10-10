@@ -84,13 +84,6 @@ export async function getCalendar(id: string): Promise<Calendar | null> {
   return calendar ? toCalendar(calendar) : null;
 }
 
-// PROVISOIRE : le premier calendrier créé, comme avant le passage à plusieurs
-// calendriers. Utilisé par les écrans pas encore adaptés ; à supprimer ensuite.
-export async function getDefaultCalendar(): Promise<Calendar | null> {
-  const calendar = await prisma.calendar.findFirst({ orderBy: { createdAt: "asc" }, include: WITH_DETAILS });
-  return calendar ? toCalendar(calendar) : null;
-}
-
 // Tous les calendriers, du plus récent au plus ancien (date de début), avec
 // leur état et leur nombre de créneaux signalés. `publishedOnly` : la vue du
 // personnel, qui ne voit que les calendriers publiés.
