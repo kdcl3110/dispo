@@ -51,17 +51,20 @@ src/
 
   actions/                 Server Actions, un fichier par domaine
     auth.ts                Connexion Google / admin, déconnexion
+    availability.ts        Signaler un créneau (personnel et admin)
     calendar.ts            Configuration, jours retirés, publication
-    availability.ts
     resource.ts
     import.ts
 
   lib/                     Logique serveur, sans UI
     prisma.ts              Instance Prisma unique
+    availability.ts        Créneaux signalés : lire, enregistrer, effacer
     calendar.ts            Lecture / écriture du calendrier (unique)
+    resource.ts            Lecture des ressources
     session.ts             requireAdmin() / requireUser()
     slots.ts               Créneaux, jours et semaines du calendrier (SPEC §6)
     validation/            Règles de validation par domaine (SPEC §10)
+      availability.ts      Créneau signalé (règles 1 à 6)
       calendar.ts          Configuration du calendrier (règles 7 à 11)
 
   components/              UI réutilisable
@@ -69,7 +72,7 @@ src/
     admin/                 Barre latérale de la zone admin
     calendar/              Étapes, formulaire de configuration
     auth/                  Pages de connexion : formulaire admin, feuille d'exemple
-    availability-grid/     La grille, partagée USER / ADMIN
+    availability-grid/     La grille et sa légende, partagées USER / ADMIN
 
   types/
     next-auth.d.ts         Ajoute `role` à la session

@@ -23,7 +23,9 @@ export async function getCurrentUser() {
 }
 
 // Utilisateur connecté, quel que soit son rôle. Sinon → page de connexion.
-async function requireSession() {
+// Pour ce qui est permis aux deux rôles (ex. signaler un créneau) ; le détail
+// des droits est alors vérifié par la règle métier.
+export async function requireSession() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   return user;

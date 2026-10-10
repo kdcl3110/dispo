@@ -93,6 +93,10 @@ export function generateSlots(config: DayConfig): Slot[] {
   return slots;
 }
 
+// Clé d'un créneau précis : "2026-09-24|14:00". Sert d'index aux créneaux
+// signalés, côté serveur comme côté navigateur.
+export const slotKey = (date: ISODate, start: Time) => `${date}|${start}`;
+
 // ---------------------------------------------------------------- dates
 
 const WEEK_DAYS: WeekDay[] = [
