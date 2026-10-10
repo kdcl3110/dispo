@@ -70,7 +70,7 @@ src/
 
   components/              UI réutilisable
     ui/                    Thème Ant Design et fournisseurs (layout racine)
-    admin/                 Cadre de la zone admin : barre latérale, contenu
+    admin/                 Cadre de la zone admin, choix de la ressource
     calendar/              Étapes, formulaires de configuration et de jours fériés
     resource/              Tableau des ressources, fenêtres d'ajout et d'import
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
