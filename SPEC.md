@@ -167,7 +167,7 @@ model Resource {
 
   availabilities Availability[]
 
-  @@unique([type, name])                 // upsert à l'import XLS, évite les doublons
+  @@index([type, name])                  // pas d'unicité : deux personnes peuvent être homonymes
 }
 
 model Availability {
@@ -195,6 +195,7 @@ model Availability {
 
 Notes de conception :
 
+- `Resource.name` d'une `PERSON` est une copie de `User.name`, mise à jour à chaque connexion Google (seul endroit où ce nom change).
 - On stocke la tranche par son **`start`** (colonne stable), pas par un `slotId`. Le `slotId` n'existe que dans la couche d'export (§9).
 - Le champ `calendarId` sur `Availability` rattache la réponse à la config qui lui donne son sens (`start` seul est ambigu sans `slotDuration`).
 - **`Availability` ne contient que des exceptions.** Un créneau sans ligne est disponible. Repasser un créneau à « disponible » **supprime** la ligne ; on n'écrit jamais `status = AVAILABLE`. La valeur reste dans l'enum parce que l'API et le JSON d'export l'emploient (`defaultStatus`), pas parce qu'elle est stockée.
@@ -361,7 +362,7 @@ Règles :
 - Normaliser les en-têtes et les valeurs (`trim`, minuscules pour `type`).
 - Refuser un `type` autre que `local` / `equipment`, ou un `name` vide.
 - Ignorer les lignes vides.
-- **Upsert sur `(type, name)`** → import rejouable sans doublons.
+- **Recherche par `(type, name)` puis création ou mise à jour**, dans une transaction → import rejouable sans doublons. Ce n'est pas une contrainte d'unicité en base : elle empêcherait deux membres du personnel homonymes.
 - L'import concerne **uniquement** locaux et équipements. Les personnes sont auto-créées au login Google.
 
 ---

@@ -81,9 +81,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // Le User et sa Resource PERSON sont créés ensemble (écriture imbriquée,
       // donc atomique) : un utilisateur Google n'existe jamais sans sa fiche.
+      // Resource.name est une copie de User.name : c'est le seul endroit où
+      // le nom d'une personne change, on y met donc à jour les deux.
       await prisma.user.upsert({
         where: { email },
-        update: { name },
+        update: { name, resource: { update: { name } } },
         create: {
           email,
           name,

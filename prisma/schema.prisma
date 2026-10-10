@@ -101,14 +101,16 @@ model Holiday {
 model Resource {
   id   String       @id @default(cuid())
   type ResourceType
-  name String
+  name String // PERSON : copie de User.name, resynchronisée à chaque connexion (src/auth.ts)
 
   ownerId String? @unique // rempli uniquement pour une PERSON
   owner   User?   @relation(fields: [ownerId], references: [id])
 
   availabilities Availability[]
 
-  @@unique([type, name]) // upsert à l'import XLS, évite les doublons
+  // Pas d'unicité : deux membres du personnel peuvent porter le même nom.
+  // L'import XLS retrouve un local ou un équipement par (type, name).
+  @@index([type, name])
 }
 
 model Availability {
