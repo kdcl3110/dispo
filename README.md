@@ -45,7 +45,8 @@ src/
         holidays/          Jours fériés et publication
       resources/           Ressources : liste, ajout, import Excel (même page)
       availability/        Grille d'une ressource (saisie admin)
-      export/              Export JSON
+      export/              Export JSON : résumé et aperçu
+        download/route.ts  Téléchargement du fichier
     availability/          Zone USER : sa propre grille
 
   actions/                 Server Actions, un fichier par domaine
@@ -59,6 +60,7 @@ src/
     prisma.ts              Instance Prisma unique
     availability.ts        Créneaux signalés : lire, enregistrer, effacer
     calendar.ts            Lecture / écriture du calendrier (unique)
+    export.ts              Construction de l'export JSON (SPEC §9)
     import.ts              Lecture du fichier Excel, création des ressources
     resource.ts            Ressources : lecture, création, modification
     session.ts             requireAdmin() / requireUser()
