@@ -229,7 +229,11 @@ function Summary({
             {[
               ["Jours de cours", describeDays(calendar.weekDays)],
               ["Journée", `De ${hour(calendar.dayStart)} à ${hour(calendar.dayEnd)}`],
-              ["Créneaux", `${formatDuration(calendar.slotDuration)}, soit ${slots.length} par jour`],
+              [
+                "Créneaux",
+                `${slots.length} par jour, de ${formatDuration(calendar.slotDuration)}` +
+                  (calendar.slotGap ? `, avec ${formatDuration(calendar.slotGap)} d'intercours` : ""),
+              ],
               [
                 calendar.breaks.length > 1 ? "Pauses" : "Pause",
                 calendar.breaks.length === 0

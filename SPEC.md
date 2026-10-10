@@ -122,7 +122,8 @@ model Calendar {
   weekDays     String[]                  // ["monday", "tuesday", ...]
   dayStart     String                    // "08:00"
   dayEnd       String                    // "18:00"
-  slotDuration Int                       // en minutes
+  slotDuration Int                       // en minutes, la même pour tous les créneaux
+  slotGap      Int      @default(0)      // intercours entre deux créneaux, en minutes
 
   publishedAt  DateTime?                 // null = brouillon, invisible des USER
   createdAt    DateTime @default(now())
@@ -216,8 +217,9 @@ Notes de conception :
   "dayStart": "08:00",
   "dayEnd": "18:00",
   "slotDuration": 120,
+  "slotGap": 30,
   "breaks": [
-    { "name": "Pause déjeuner", "start": "12:00", "end": "14:00" }
+    { "name": "Pause de midi", "start": "12:30", "end": "13:30" }
   ],
   "holidays": [
     { "date": "2026-10-26", "label": "Congé d'automne" },
@@ -228,11 +230,17 @@ Notes de conception :
 
 ### Génération des créneaux (dérivée, non persistée)
 
-Pour chaque jour retenu — un jour de `weekDays`, compris entre `startDate` et `endDate`, **et absent de `holidays`** — la plage `dayStart`→`dayEnd` est découpée en tranches de `slotDuration` minutes, **les pauses étant retirées**.
+Pour chaque jour retenu — un jour de `weekDays`, compris entre `startDate` et `endDate`, **et absent de `holidays`** — la journée est découpée en créneaux **de même durée** (`slotDuration`), séparés par un **intercours** (`slotGap`, 0 par défaut) :
 
-Une pause ne produit aucun créneau : elle coupe la journée en segments, chacun découpé indépendamment. La numérotation `s1, s2, …` court sur toute la journée, pauses sautées.
+- on enchaîne créneau → intercours → créneau, à partir de `dayStart` ;
+- si un créneau mordait sur une pause, il **repart à la fin de la pause** (sans intercours en plus : la pause en tient lieu) ;
+- on s'arrête quand le créneau suivant ne tient plus avant `dayEnd`. Le temps qui reste éventuellement en fin de journée n'est pas une erreur.
 
-Fonction de référence, réutilisable à l'affichage **et** à l'export :
+La numérotation `s1, s2, …` suit l'ordre de la journée.
+
+Exemple HE2B — 08:00 → 18:00, créneaux de 2 h, intercours de 30 min, pause 12:30 → 13:30 : **08:00–10:00, 10:30–12:30, 13:30–15:30, 16:00–18:00**. Sans intercours, on retrouve le découpage « collé » d'origine.
+
+Fonction de référence (`src/lib/slots.ts`), réutilisée à l'affichage **et** à l'export :
 
 ```js
 function toMin(h) {
@@ -246,28 +254,16 @@ function toHHMM(min) {
   return `${hh}:${mm}`;
 }
 
-// Découpe la journée en segments séparés par les pauses.
-function daySegments({ dayStart, dayEnd, breaks = [] }) {
-  const sorted = [...breaks].sort((a, b) => toMin(a.start) - toMin(b.start));
-  const segments = [];
-  let cursor = toMin(dayStart);
-  for (const b of sorted) {
-    segments.push([cursor, toMin(b.start)]);
-    cursor = toMin(b.end);
-  }
-  segments.push([cursor, toMin(dayEnd)]);
-  return segments;
-}
-
 // Produit [{ id: "s1", start: "08:00", end: "10:00" }, ...]
-// Les id sont déterministes (ordre croissant, pauses exclues).
-function generateSlots({ dayStart, dayEnd, slotDuration, breaks = [] }) {
+function generateSlots({ dayStart, dayEnd, slotDuration, slotGap = 0, breaks = [] }) {
+  const pauses = breaks.map((b) => ({ start: toMin(b.start), end: toMin(b.end) }));
   const slots = [];
-  let i = 1;
-  for (const [from, to] of daySegments({ dayStart, dayEnd, breaks })) {
-    for (let t = from; t + slotDuration <= to; t += slotDuration) {
-      slots.push({ id: `s${i++}`, start: toHHMM(t), end: toHHMM(t + slotDuration) });
-    }
+  let t = toMin(dayStart);
+  while (t + slotDuration <= toMin(dayEnd)) {
+    const pause = pauses.find((b) => t < b.end && t + slotDuration > b.start);
+    if (pause) { t = pause.end; continue; }      // le créneau repart après la pause
+    slots.push({ id: `s${slots.length + 1}`, start: toHHMM(t), end: toHHMM(t + slotDuration) });
+    t += slotDuration + slotGap;                  // intercours
   }
   return slots;
 }
@@ -275,32 +271,7 @@ function generateSlots({ dayStart, dayEnd, slotDuration, breaks = [] }) {
 
 ### Règles de validation clés
 
-**1 — Chaque segment entre deux pauses doit être un multiple entier de `slotDuration`**, sinon le dernier créneau du segment serait tronqué. Ce n'est plus la journée entière qui est vérifiée, mais chaque segment.
-
-```js
-function validateGrid({ dayStart, dayEnd, slotDuration, breaks = [] }) {
-  const sorted = [...breaks].sort((a, b) => toMin(a.start) - toMin(b.start));
-  let cursor = toMin(dayStart);
-
-  for (const b of sorted) {
-    const from = toMin(b.start);
-    const to = toMin(b.end);
-    if (from < cursor || to <= from || to > toMin(dayEnd)) {
-      throw new Error(`Pause ${b.start} – ${b.end} : hors journée ou chevauchante.`);
-    }
-    cursor = to;
-  }
-
-  for (const [from, to] of daySegments({ dayStart, dayEnd, breaks })) {
-    const len = to - from;
-    if (len <= 0 || len % slotDuration !== 0) {
-      throw new Error(
-        `Le segment ${toHHMM(from)} – ${toHHMM(to)} (${len} min) doit être un multiple de la durée d'un créneau (${slotDuration} min).`
-      );
-    }
-  }
-}
-```
+**1 — Au moins un créneau doit tenir dans la journée.** Les pauses sont ordonnées, disjointes et comprises dans `[dayStart, dayEnd]` ; l'intercours est compris entre 0 et 4 h. Il n'y a **plus** de contrainte « segment multiple de `slotDuration` » : le temps restant éventuel en fin de journée est simplement inutilisé. *(Décision du 11 octobre 2026, avec l'introduction de l'intercours.)*
 
 **2 — Le calendrier ne peut pas dépasser 15 semaines calendaires**, comptées depuis le lundi de la semaine de `startDate`.
 
@@ -385,8 +356,9 @@ L'export (admin uniquement) rassemble la config du calendrier, la grille **calcu
     "dayStart": "08:00",
     "dayEnd": "18:00",
     "slotDuration": 120,
+    "slotGap": 30,
     "breaks": [
-      { "name": "Pause déjeuner", "start": "12:00", "end": "14:00" }
+      { "name": "Pause de midi", "start": "12:30", "end": "13:30" }
     ],
     "holidays": [
       { "date": "2026-10-26", "label": "Congé d'automne" },
@@ -396,8 +368,8 @@ L'export (admin uniquement) rassemble la config du calendrier, la grille **calcu
   },
   "slots": [
     { "id": "s1", "start": "08:00", "end": "10:00" },
-    { "id": "s2", "start": "10:00", "end": "12:00" },
-    { "id": "s3", "start": "14:00", "end": "16:00" },
+    { "id": "s2", "start": "10:30", "end": "12:30" },
+    { "id": "s3", "start": "13:30", "end": "15:30" },
     { "id": "s4", "start": "16:00", "end": "18:00" }
   ],
   "resources": [
@@ -446,7 +418,7 @@ Comme les slots ne sont plus une table (plus de clé étrangère qui garantit la
 
 À l'enregistrement de la config du calendrier :
 
-7. Chaque segment entre pauses est un multiple de `slotDuration` (voir §6).
+7. Au moins un créneau tient dans la journée ; l'intercours est compris entre 0 et 4 h (voir §6).
 8. Les pauses sont ordonnées, disjointes et incluses dans `[dayStart, dayEnd]`.
 9. La période couvre **15 semaines calendaires au maximum** (voir §6).
 10. `startDate <= endDate`, `weekDays` non vide, `dayStart < dayEnd`.

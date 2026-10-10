@@ -70,6 +70,7 @@ export async function buildExport(calendarId: string, exportedBy: string, now = 
       dayStart: calendar.dayStart,
       dayEnd: calendar.dayEnd,
       slotDuration: calendar.slotDuration,
+      slotGap: calendar.slotGap,
       breaks: calendar.breaks,
       holidays: calendar.holidays.map((h) => ({ date: h.date, label: h.label })),
       defaultStatus: STATUS.AVAILABLE,
