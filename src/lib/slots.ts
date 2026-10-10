@@ -115,6 +115,66 @@ export function weekDayOf(date: ISODate): WeekDay {
   return WEEK_DAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
 }
 
+// "YYYY-MM-DD" décalé de `days` jours.
+export function addDays(date: ISODate, days: number): ISODate {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return toISODate(d);
+}
+
+// Lundi de la semaine qui contient `date`.
+export function mondayOf(date: ISODate): ISODate {
+  const d = new Date(`${date}T00:00:00Z`);
+  return addDays(date, -((d.getUTCDay() + 6) % 7));
+}
+
+// Semaines du calendrier, du lundi de la semaine de startDate jusqu'à celle de
+// endDate. Chaque semaine liste ses dates par jour de cours, ou null quand la
+// date tombe hors de la période (première et dernière semaines incomplètes).
+export function calendarWeekGrid({ startDate, endDate, weekDays }: PeriodConfig) {
+  const order: WeekDay[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+  const days = order.filter((day) => weekDays.includes(day));
+  const weeks: { monday: ISODate; dates: (ISODate | null)[] }[] = [];
+
+  for (let monday = mondayOf(startDate); monday <= endDate; monday = addDays(monday, 7)) {
+    weeks.push({
+      monday,
+      dates: days.map((day) => {
+        const date = addDays(monday, order.indexOf(day));
+        return date >= startDate && date <= endDate ? date : null;
+      }),
+    });
+  }
+  return { days, weeks };
+}
+
+// Regroupe des jours retirés en périodes : deux jours retirés sont dans la
+// même période s'il n'y a aucun jour de cours entre eux (un congé du lundi au
+// vendredi suivant le week-end reste une seule période).
+export function holidayPeriods(
+  period: PeriodConfig,
+  holidays: { date: ISODate; label?: string | null }[],
+) {
+  const courseDays = calendarDays({ ...period, holidays: [] });
+  const position = new Map(courseDays.map((date, i) => [date, i]));
+  const sorted = [...holidays]
+    .filter((h) => position.has(h.date))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const periods: { from: ISODate; to: ISODate; dates: ISODate[]; label: string }[] = [];
+  for (const h of sorted) {
+    const last = periods.at(-1);
+    if (last && position.get(h.date) === position.get(last.to)! + 1) {
+      last.to = h.date;
+      last.dates.push(h.date);
+      last.label ||= h.label ?? "";
+    } else {
+      periods.push({ from: h.date, to: h.date, dates: [h.date], label: h.label ?? "" });
+    }
+  }
+  return periods;
+}
+
 // Jours retenus par le calendrier, dans l'ordre : compris entre startDate et
 // endDate, sur un jour de weekDays, et absents des jours fériés.
 export function calendarDays({ startDate, endDate, weekDays, holidays = [] }: PeriodConfig): ISODate[] {

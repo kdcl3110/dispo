@@ -4,7 +4,7 @@
 // rattachée au champ concerné : le formulaire peut ainsi les afficher sous
 // leurs champs respectifs, en une fois.
 
-import { daySegments, toHHMM, toMin, type ISODate, type Time } from "@/lib/slots";
+import { daySegments, toHHMM, toMin, weekDayOf, type ISODate, type Time } from "@/lib/slots";
 
 export const MAX_WEEKS = 15;
 
@@ -52,7 +52,7 @@ function utc(date: ISODate) {
 const DAY_MS = 86_400_000;
 
 // « 14 septembre 2026 »
-function formatDate(date: ISODate) {
+export function formatDate(date: ISODate) {
   return new Intl.DateTimeFormat("fr-BE", {
     day: "numeric",
     month: "long",
@@ -130,6 +130,37 @@ export function breakEndSuggestions(config: Omit<CalendarConfigInput, "holidays"
     .slice(0, 3)
     .sort((a, b) => a - b)
     .map(toHHMM);
+}
+
+// ---------------------------------------------------------------- jours retirés
+
+export const MAX_LABEL_LENGTH = 80;
+
+// Jours retirés (écran « Jours fériés ») : chacun doit être un jour de cours
+// de la période, sans doublon. Les erreurs portent sur le champ "holidays".
+export function validateHolidays(
+  calendar: { startDate: ISODate; endDate: ISODate; weekDays: string[] },
+  holidays: { date: ISODate; label?: string | null }[],
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const seen = new Set<string>();
+
+  for (const h of holidays) {
+    if (!isISODate(h.date)) {
+      errors.push({ field: "holidays", message: `« ${h.date} » n'est pas une date valide.` });
+    } else if (h.date < calendar.startDate || h.date > calendar.endDate) {
+      errors.push({ field: "holidays", message: `Le ${formatDate(h.date)} tombe en dehors de la période du calendrier.` });
+    } else if (!calendar.weekDays.includes(weekDayOf(h.date))) {
+      errors.push({ field: "holidays", message: `Le ${formatDate(h.date)} n'est pas un jour de cours.` });
+    } else if (seen.has(h.date)) {
+      errors.push({ field: "holidays", message: `Le ${formatDate(h.date)} est retiré deux fois.` });
+    }
+    if ((h.label ?? "").length > MAX_LABEL_LENGTH) {
+      errors.push({ field: "holidays", message: `Le nom « ${h.label!.slice(0, 20)}… » dépasse ${MAX_LABEL_LENGTH} caractères.` });
+    }
+    seen.add(h.date);
+  }
+  return errors;
 }
 
 // ---------------------------------------------------------------- validation

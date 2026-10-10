@@ -64,6 +64,25 @@ export async function countExceptions(calendarId: string) {
   return prisma.availability.count({ where: { calendarId } });
 }
 
+// Remplace en bloc les jours retirés du calendrier.
+export async function replaceHolidays(calendarId: string, holidays: { date: ISODate; label: string | null }[]) {
+  await prisma.$transaction([
+    prisma.holiday.deleteMany({ where: { calendarId } }),
+    prisma.holiday.createMany({
+      data: holidays.map((h) => ({ calendarId, date: toDbDate(h.date), label: h.label })),
+    }),
+  ]);
+}
+
+// Rend le calendrier visible du personnel. Sans effet s'il l'est déjà : la
+// date de publication d'origine est conservée.
+export async function publishCalendar(calendarId: string) {
+  await prisma.calendar.updateMany({
+    where: { id: calendarId, publishedAt: null },
+    data: { publishedAt: new Date() },
+  });
+}
+
 // Crée le calendrier s'il n'existe pas, sinon le met à jour. Les pauses sont
 // remplacées en bloc, dans la même transaction : jamais d'état intermédiaire
 // où le calendrier aurait ses nouvelles heures et ses anciennes pauses.

@@ -51,7 +51,7 @@ src/
 
   actions/                 Server Actions, un fichier par domaine
     auth.ts                Connexion Google / admin, déconnexion
-    calendar.ts            Enregistrer la configuration du calendrier
+    calendar.ts            Configuration, jours retirés, publication
     availability.ts
     resource.ts
     import.ts
@@ -60,7 +60,7 @@ src/
     prisma.ts              Instance Prisma unique
     calendar.ts            Lecture / écriture du calendrier (unique)
     session.ts             requireAdmin() / requireUser()
-    slots.ts               Génération des créneaux (SPEC §6)
+    slots.ts               Créneaux, jours et semaines du calendrier (SPEC §6)
     validation/            Règles de validation par domaine (SPEC §10)
       calendar.ts          Configuration du calendrier (règles 7 à 11)
 
