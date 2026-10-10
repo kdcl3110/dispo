@@ -69,7 +69,7 @@ src/
 
   components/              UI réutilisable
     ui/                    Thème Ant Design et fournisseurs (layout racine)
-    admin/                 Barre latérale de la zone admin
+    admin/                 Cadre de la zone admin : barre latérale, contenu
     calendar/              Étapes, formulaire de configuration
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN

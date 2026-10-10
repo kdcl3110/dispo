@@ -1,29 +1,35 @@
 "use client";
 
-// Barre latérale de la zone admin (maquettes « Admin — … »).
-// Composant client : il lit l'URL courante pour marquer la page active.
+// Barre latérale de la zone admin (maquettes « Admin — … »), en Layout.Sider
+// et Menu d'Ant Design. Composant client : il lit l'URL courante pour marquer
+// la page active.
 
+import { Button, Layout, Menu, type MenuProps } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { logout } from "@/actions/auth";
 
 // Regroupée par phase de travail : préparer le calendrier, puis les ressources.
-const navigation = [
+// Les libellés sont des liens : navigation native, préchargement par Next, et
+// Ant étend la zone cliquable à toute la ligne.
+const items: MenuProps["items"] = [
   {
-    title: "Calendrier",
-    links: [
-      { href: "/admin/calendar", label: "Configuration" },
-      { href: "/admin/calendar/holidays", label: "Jours fériés et publication" },
+    type: "group",
+    label: "Calendrier",
+    children: [
+      { key: "/admin/calendar", label: <Link href="/admin/calendar">Configuration</Link> },
+      { key: "/admin/calendar/holidays", label: <Link href="/admin/calendar/holidays">Jours fériés et publication</Link> },
     ],
   },
   {
-    title: "Ressources",
-    links: [
-      { href: "/admin/resources", label: "Liste des ressources" },
-      { href: "/admin/resources/import", label: "Import des locaux" },
-      { href: "/admin/availability", label: "Saisie des disponibilités" },
-      { href: "/admin/export", label: "Export JSON" },
+    type: "group",
+    label: "Ressources",
+    children: [
+      { key: "/admin/resources", label: <Link href="/admin/resources">Liste des ressources</Link> },
+      { key: "/admin/resources/import", label: <Link href="/admin/resources/import">Import des locaux</Link> },
+      { key: "/admin/availability", label: <Link href="/admin/availability">Saisie des disponibilités</Link> },
+      { key: "/admin/export", label: <Link href="/admin/export">Export JSON</Link> },
     ],
   },
 ];
@@ -32,47 +38,33 @@ export function AdminSidebar({ username }: { username: string }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex shrink-0 flex-col justify-between gap-8 border-b border-rule px-4 py-6 md:w-58 md:border-r md:border-b-0 md:pt-7">
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-1.5 px-3">
-          <span className="font-condensed text-2xl leading-none font-semibold tracking-[-0.01em]">
-            dispo
-          </span>
-          <span className="text-[13px] text-graphite">Administration</span>
+    <Layout.Sider
+      width={232}
+      breakpoint="md"
+      collapsedWidth={0}
+      className="border-r border-rule"
+    >
+      <div className="flex h-full flex-col justify-between gap-8 py-7">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-1.5 px-7">
+            <span className="font-condensed text-2xl leading-none font-semibold tracking-[-0.01em]">dispo</span>
+            <span className="text-[13px] text-graphite">Administration</span>
+          </div>
+
+          <nav aria-label="Administration">
+            <Menu mode="inline" items={items} selectedKeys={[pathname]} className="border-none! px-2" />
+          </nav>
         </div>
 
-        <nav aria-label="Administration" className="flex flex-col gap-6">
-          {navigation.map((group) => (
-            <div key={group.title} className="flex flex-col gap-0.5">
-              <span className="px-3 pb-1.5 text-xs font-medium text-graphite">{group.title}</span>
-              {group.links.map((link) => {
-                const active = pathname === link.href;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex h-9.5 items-center rounded-md px-3 text-sm no-underline ${
-                      active ? "bg-pen-tint font-semibold text-pen" : "text-ink hover:bg-desk"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+        <div className="mx-7 flex flex-col items-start gap-0.5 border-t border-rule pt-4">
+          <span className="text-sm font-medium">{username}</span>
+          <form action={logout}>
+            <Button type="link" htmlType="submit" size="small" className="h-auto! p-0! text-[13px]!">
+              Se déconnecter
+            </Button>
+          </form>
+        </div>
       </div>
-
-      <div className="mx-3 flex flex-col items-start gap-0.5 border-t border-rule pt-4">
-        <span className="text-sm font-medium">{username}</span>
-        <form action={logout}>
-          <button type="submit" className="cursor-pointer text-[13px] text-pen hover:text-pen-dark">
-            Se déconnecter
-          </button>
-        </form>
-      </div>
-    </div>
+    </Layout.Sider>
   );
 }
