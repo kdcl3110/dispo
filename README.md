@@ -71,7 +71,7 @@ src/
     ui/                    Thème Ant Design et fournisseurs (layout racine)
     admin/                 Barre latérale de la zone admin
     calendar/              Étapes, formulaire de configuration
-    auth/                  Pages de connexion : formulaire admin, feuille d'exemple
+    auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN
 
   types/

@@ -2,7 +2,10 @@
 // Une seule porte d'entrée : Google, réservé aux adresses HE2B. Le mode
 // administrateur a son propre écran, /login/admin.
 
+import { Alert } from "antd";
+
 import { loginWithGoogle } from "@/actions/auth";
+import { GoogleButton } from "@/components/auth/google-button";
 import { SampleSheet, SheetLegend } from "@/components/auth/sample-sheet";
 
 // Erreurs renvoyées par Auth.js dans l'URL (/login?error=…).
@@ -40,20 +43,10 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
           <div className="flex flex-col items-start gap-3.5">
             {errorMessage && (
-              <p
-                role="alert"
-                className="max-w-[460px] rounded-md bg-error-tint px-4 py-3 text-sm text-unavailable"
-              >
-                {errorMessage}
-              </p>
+              <Alert type="error" showIcon title={errorMessage} className="max-w-[460px]" />
             )}
             <form action={loginWithGoogle}>
-              <button
-                type="submit"
-                className="h-13 rounded-md bg-pen px-7 text-base font-semibold text-white hover:bg-pen-dark"
-              >
-                Continuer avec Google
-              </button>
+              <GoogleButton />
             </form>
             <p className="max-w-[420px] text-sm leading-relaxed text-graphite">
               Réservé aux adresses <strong className="font-semibold text-ink">@he2b.be</strong>.
