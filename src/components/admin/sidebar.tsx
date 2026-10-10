@@ -24,7 +24,7 @@ const items: MenuProps["items"] = [
     type: "group",
     label: "Calendrier",
     children: [
-      { key: "/admin/calendar", icon: <CalendarOutlined />, label: <Link href="/admin/calendar">Préparer le calendrier</Link> },
+      { key: "/admin/calendars", icon: <CalendarOutlined />, label: <Link href="/admin/calendars">Calendriers</Link> },
     ],
   },
   {
@@ -40,6 +40,11 @@ const items: MenuProps["items"] = [
 
 export function AdminSidebar({ username }: { username: string }) {
   const pathname = usePathname();
+  // Entrée active : celle dont l'adresse commence la page courante
+  // (/admin/calendars/abc → « Calendriers »).
+  const selected = ["/admin/calendars", "/admin/resources", "/admin/availability", "/admin/export"].find(
+    (key) => pathname === key || pathname.startsWith(`${key}/`),
+  );
 
   return (
     // Hauteur de la fenêtre, collée en haut : la barre ne s'étire pas avec le
@@ -60,7 +65,7 @@ export function AdminSidebar({ username }: { username: string }) {
           </div>
 
           <nav aria-label="Administration">
-            <Menu mode="inline" items={items} selectedKeys={[pathname]} className="border-none! px-2" />
+            <Menu mode="inline" items={items} selectedKeys={selected ? [selected] : []} className="border-none! px-2" />
           </nav>
         </div>
 

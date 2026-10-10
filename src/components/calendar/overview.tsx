@@ -1,21 +1,17 @@
 "use client";
 
-// Écran « Calendrier » : un résumé lisible au lieu de formulaires.
-//
-//  - Sans calendrier : un seul message et un seul bouton, « Créer le calendrier ».
-//  - Avec un calendrier : l'état et l'action principale en haut (publier), avec
-//    la prochaine étape en toutes lettres ; puis les horaires et les congés,
-//    décrits en phrases. Chaque bloc a un bouton qui ouvre son formulaire dans
-//    un panneau latéral : on ne travaille que sur une chose à la fois.
+// Un calendrier : un résumé lisible au lieu de formulaires. L'état et l'action
+// principale en haut (publier), avec la prochaine étape en toutes lettres ;
+// puis les horaires et les congés, décrits en phrases. Chaque bloc a un bouton
+// qui ouvre son formulaire dans un panneau latéral : on ne travaille que sur
+// une chose à la fois. La création se fait depuis la liste des calendriers.
 
 import {
-  CalendarOutlined,
   CarryOutOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
   EditOutlined,
   InfoCircleOutlined,
-  PlusOutlined,
   SendOutlined,
 } from "@ant-design/icons";
 import { App, Button, Drawer, Popconfirm, Tag } from "antd";
@@ -64,41 +60,25 @@ function describeDays(weekDays: string[]) {
 
 // ---------------------------------------------------------------- écran
 
-export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewCalendar | null; exceptions: number }) {
+export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewCalendar; exceptions: number }) {
   const [editing, setEditing] = useState<"config" | "holidays" | null>(null);
   const router = useRouter();
   const locked = exceptions > 0;
 
   return (
     <>
-      {calendar ? (
-        <Summary calendar={calendar} exceptions={exceptions} onEdit={setEditing} />
-      ) : (
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-field px-6 py-16 text-center">
-          <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-2xl bg-pen-tint text-[26px] text-pen">
-            <CalendarOutlined />
-          </span>
-          <h2 className="text-xl font-semibold">Aucun calendrier pour l&apos;instant</h2>
-          <p className="max-w-[480px] text-[15px] leading-relaxed text-graphite">
-            Commencez par la période et les horaires du quadrimestre. Vous pourrez ensuite retirer les congés, puis
-            publier le calendrier pour le personnel.
-          </p>
-          <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setEditing("config")} className="mt-2">
-            Créer le calendrier
-          </Button>
-        </div>
-      )}
+      <Summary calendar={calendar} exceptions={exceptions} onEdit={setEditing} />
 
       <Drawer
         open={editing === "config"}
         onClose={() => setEditing(null)}
-        title={calendar ? "Modifier les horaires" : "Créer le calendrier"}
+        title={locked ? "Horaires" : "Modifier les horaires"}
         size="min(960px, 100vw)"
         destroyOnHidden
       >
         <CalendarConfigForm
           initial={calendar}
-          holidays={calendar?.holidays ?? []}
+          holidays={calendar.holidays}
           locked={locked}
           onSaved={() => {
             setEditing(null);
@@ -107,28 +87,26 @@ export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewC
         />
       </Drawer>
 
-      {calendar && (
-        <Drawer
-          open={editing === "holidays"}
-          onClose={() => setEditing(null)}
-          title="Congés et jours fériés"
-          size="min(1280px, 100vw)"
-          destroyOnHidden
-        >
-          <p className="mb-6 text-[15px] text-graphite">
-            Cliquez sur une journée pour la retirer du calendrier : aucun créneau n&apos;y sera proposé. Cliquez à
-            nouveau pour la rendre.
-          </p>
-          <HolidaysForm
-            calendarId={calendar.id}
-            calendar={{ startDate: calendar.startDate, endDate: calendar.endDate, weekDays: calendar.weekDays }}
-            initialHolidays={calendar.holidays}
-            slotsPerDay={generateSlots(calendar).length}
-            locked={locked}
-            onSaved={() => setEditing(null)}
-          />
-        </Drawer>
-      )}
+      <Drawer
+        open={editing === "holidays"}
+        onClose={() => setEditing(null)}
+        title="Congés et jours fériés"
+        size="min(1280px, 100vw)"
+        destroyOnHidden
+      >
+        <p className="mb-6 text-[15px] text-graphite">
+          Cliquez sur une journée pour la retirer du calendrier : aucun créneau n&apos;y sera proposé. Cliquez à
+          nouveau pour la rendre.
+        </p>
+        <HolidaysForm
+          calendarId={calendar.id}
+          calendar={{ startDate: calendar.startDate, endDate: calendar.endDate, weekDays: calendar.weekDays }}
+          initialHolidays={calendar.holidays}
+          slotsPerDay={generateSlots(calendar).length}
+          locked={locked}
+          onSaved={() => setEditing(null)}
+        />
+      </Drawer>
     </>
   );
 }

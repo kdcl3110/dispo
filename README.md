@@ -40,8 +40,9 @@ src/
     api/auth/[...nextauth]/route.ts
     admin/                 Zone ADMIN
       layout.tsx           Vérifie le rôle, affiche la barre latérale
-      page.tsx             Redirige vers /admin/calendar
-      calendar/            Calendrier : configuration, jours fériés, publication (une page)
+      page.tsx             Redirige vers /admin/calendars
+      calendars/           Liste des calendriers, création, suppression
+        [id]/              Un calendrier : résumé, horaires, congés, publication
       resources/           Ressources : liste, ajout, import Excel (même page)
       availability/        Grille d'une ressource (saisie admin)
       export/              Export JSON : résumé et aperçu
@@ -72,7 +73,7 @@ src/
   components/              UI réutilisable
     ui/                    Thème Ant Design, fournisseurs, en-tête d'écran, icônes, menu utilisateur
     admin/                 Cadre de la zone admin, choix de la ressource
-    calendar/              Écran Calendrier : résumé, panneaux de modification, aperçu des mois
+    calendar/              Calendriers : liste, résumé, panneaux de modification, aperçu des mois
     resource/              Tableau des ressources, fenêtres d'ajout et d'import
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN

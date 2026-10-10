@@ -22,7 +22,7 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
     return (
       <Message title="Aucun calendrier">
         Configurez d&apos;abord le calendrier : la grille en découle.{" "}
-        <Link href="/admin/calendar">Aller à la configuration</Link>
+        <Link href="/admin/calendars">Aller aux calendriers</Link>
       </Message>
     );
   }

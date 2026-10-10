@@ -46,7 +46,7 @@ export default async function ExportPage() {
       <main className="flex flex-1 flex-col gap-2 px-6 py-12 md:px-10">
         <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">Rien à exporter</h1>
         <p className="max-w-[560px] text-[15px] leading-relaxed text-graphite">
-          Configurez d&apos;abord le calendrier : l&apos;export en découle. <Link href="/admin/calendar">Aller à la configuration</Link>
+          Configurez d&apos;abord le calendrier : l&apos;export en découle. <Link href="/admin/calendars">Aller aux calendriers</Link>
         </p>
       </main>
     );
