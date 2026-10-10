@@ -1,11 +1,11 @@
 "use client";
 
 // Choix de la ressource dont on saisit les disponibilités (écran admin).
-// La ressource choisie vit dans l'URL (?resource=…) : un lien depuis la liste
-// des ressources ouvre directement la bonne grille.
+// La ressource choisie vit dans l'URL (?resource=…), à côté du calendrier
+// (?calendar=…) : un lien depuis la liste des ressources ouvre la bonne grille.
 
 import { Select } from "antd";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const GROUPS = [
   { type: "LOCAL", label: "Locaux" },
@@ -21,6 +21,7 @@ export function ResourcePicker({
   selectedId: string;
 }) {
   const router = useRouter();
+  const params = useSearchParams();
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -31,7 +32,12 @@ export function ResourcePicker({
         id="resource-picker"
         showSearch={{ optionFilterProp: "label" }}
         value={selectedId}
-        onChange={(id: string) => router.push(`/admin/availability?resource=${id}`)}
+        onChange={(id: string) => {
+          // On garde le calendrier choisi (?calendar=…).
+          const next = new URLSearchParams(params.toString());
+          next.set("resource", id);
+          router.push(`/admin/availability?${next.toString()}`);
+        }}
         options={GROUPS.map((group) => ({
           label: group.label,
           title: group.label,

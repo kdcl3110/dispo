@@ -1,11 +1,23 @@
 // Écran « Export JSON » (maquette « Admin — Export JSON »).
-// Résume le contenu du fichier et en montre le début ; le téléchargement
-// passe par la route /admin/export/download.
+// Les chiffres du calendrier choisi, le bouton de téléchargement, et un aperçu
+// du fichier replié par défaut. Le téléchargement passe par la route
+// /admin/export/download.
 
-import { Button } from "antd";
+import { Button, Collapse } from "antd";
 import Link from "next/link";
 
-import { getDefaultCalendar } from "@/lib/calendar";
+import { CalendarPicker } from "@/components/admin/calendar-picker";
+import {
+  CarryOutOutlined,
+  ClockCircleOutlined,
+  DownloadOutlined,
+  ExclamationCircleOutlined,
+  ExportOutlined,
+  InfoCircleOutlined,
+  TeamOutlined,
+} from "@/components/ui/icons";
+import { PageHeader } from "@/components/ui/page-header";
+import { defaultCalendarId, listCalendars } from "@/lib/calendar";
 import { buildExport, exportFileName, type ExportDocument } from "@/lib/export";
 import { requireAdmin } from "@/lib/session";
 import { calendarDays } from "@/lib/slots";
@@ -35,18 +47,20 @@ function Highlighted({ json }: { json: string }) {
   });
 }
 
-export default async function ExportPage() {
+export default async function ExportPage({ searchParams }: PageProps<"/admin/export">) {
   const admin = await requireAdmin();
-  // PROVISOIRE : le calendrier par défaut, jusqu'au choix du calendrier (étape 5).
-  const calendarId = (await getDefaultCalendar())?.id;
+
+  // Calendrier demandé dans l'URL, sinon celui proposé par défaut.
+  const [calendars, params] = await Promise.all([listCalendars(), searchParams]);
+  const calendarId = calendars.find((c) => c.id === params.calendar)?.id ?? defaultCalendarId(calendars);
   const document = calendarId ? await buildExport(calendarId, admin.name ?? "admin") : null;
 
-  if (!document) {
+  if (!calendarId || !document) {
     return (
-      <main className="flex flex-1 flex-col gap-2 px-6 py-12 md:px-10">
-        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">Rien à exporter</h1>
+      <main className="flex flex-1 flex-col gap-8 px-6 py-8 md:px-10">
+        <PageHeader icon={<ExportOutlined />} title="Export JSON" />
         <p className="max-w-[560px] text-[15px] leading-relaxed text-graphite">
-          Configurez d&apos;abord le calendrier : l&apos;export en découle. <Link href="/admin/calendars">Aller aux calendriers</Link>
+          Créez d&apos;abord un calendrier : l&apos;export en découle. <Link href="/admin/calendars">Aller aux calendriers</Link>
         </p>
       </main>
     );
@@ -57,72 +71,56 @@ export default async function ExportPage() {
   const exceptions = resources.reduce((n, r) => n + r.exceptions.length, 0);
   const preview = JSON.stringify(previewOf(document), null, 2);
 
-  const summary: [string, string | number][] = [
-    ["Calendrier", calendar.name],
-    ["Jours de cours", days],
-    ["Créneaux par jour", slots.length],
-    ["Jours retirés", calendar.holidays.length],
-    ["Ressources", resources.length],
-    ["Créneaux signalés", exceptions],
-  ];
-
   return (
-    // Grand écran : la page tient exactement dans la fenêtre (h-screen) et seul
-    // l'aperçu défile. Sans ça, l'aperçu et la page défilaient l'un dans l'autre.
-    // Petit écran : la page défile normalement.
-    <main className="flex flex-1 flex-col gap-6 px-6 py-8 md:px-10 lg:h-screen lg:flex-none lg:overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-1.5">
-        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">Export JSON</h1>
-        <p className="max-w-[680px] text-[15px] leading-relaxed text-graphite">
-          Un fichier avec la configuration du calendrier, la grille des créneaux, les jours retirés et tous les créneaux
-          signalés.
-        </p>
-      </div>
+    <main className="flex flex-1 flex-col gap-8 px-6 py-8 md:px-10">
+      <PageHeader
+        icon={<ExportOutlined />}
+        title="Export JSON"
+        description="Un fichier par calendrier, avec sa configuration, sa grille de créneaux et tous les créneaux signalés."
+        figures={[
+          { icon: <CarryOutOutlined />, value: days, label: "jours de cours" },
+          { icon: <ClockCircleOutlined />, value: slots.length, label: "créneaux par jour" },
+          { icon: <TeamOutlined />, value: resources.length, label: resources.length > 1 ? "ressources" : "ressource" },
+          { icon: <ExclamationCircleOutlined />, value: exceptions, label: exceptions > 1 ? "créneaux signalés" : "créneau signalé" },
+        ]}
+      />
 
-      <div className="flex flex-1 flex-col gap-10 lg:min-h-0 lg:flex-row">
-        <div className="flex flex-col gap-6 lg:w-80 lg:shrink-0 lg:overflow-y-auto">
-          <div className="flex flex-col gap-3">
-            <h2 className="text-base font-semibold">Contenu du fichier</h2>
-            <dl className="flex flex-col border-t border-rule">
-              {summary.map(([label, value]) => (
-                <div key={label} className="flex items-baseline justify-between gap-4 border-b border-rule py-2.5">
-                  <dt className="text-sm text-graphite">{label}</dt>
-                  <dd className="text-right text-sm font-semibold">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button type="primary" size="large" block href={`/admin/export/download?calendar=${calendarId}`}>
-              Télécharger le JSON
-            </Button>
-            <span className="text-center text-[13px] text-graphite">{exportFileName(document)}</span>
-          </div>
-
-          <div className="flex flex-col gap-2.5 border-t border-rule pt-5">
-            <h2 className="text-base font-semibold">Ce que le fichier ne liste pas</h2>
-            <p className="text-sm leading-relaxed text-graphite">
-              Les créneaux disponibles. Un créneau absent vaut « available », comme l&apos;indique le champ defaultStatus.
-            </p>
-            <p className="text-sm leading-relaxed text-graphite">Les jours retirés. Ils ne produisent aucun créneau.</p>
-          </div>
+      {/* Une seule barre : quoi exporter, et le bouton pour le faire. */}
+      <div className="flex flex-wrap items-end justify-between gap-6 border-t border-rule pt-6">
+        <CalendarPicker calendars={calendars} selectedId={calendarId} />
+        <div className="flex flex-col items-end gap-1.5">
+          <Button type="primary" size="large" icon={<DownloadOutlined />} href={`/admin/export/download?calendar=${calendarId}`}>
+            Télécharger le JSON
+          </Button>
+          <span className="text-[13px] text-graphite">{exportFileName(document)}</span>
         </div>
-
-        <section aria-labelledby="preview-title" className="flex min-h-[420px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-rule bg-[#f6f8fb] lg:min-h-0">
-          <div className="flex h-13 shrink-0 items-center justify-between border-b border-rule bg-paper px-5">
-            <h2 id="preview-title" className="text-sm font-semibold">
-              Aperçu du fichier
-            </h2>
-            {resources.length > 2 && (
-              <span className="text-[13px] text-graphite">Limité aux 2 premières ressources</span>
-            )}
-          </div>
-          <pre className="m-0 min-h-0 flex-1 overflow-auto p-5 font-mono text-[12.5px] leading-relaxed text-graphite">
-            <Highlighted json={preview} />
-          </pre>
-        </section>
       </div>
+
+      <p className="flex items-start gap-2.5 text-sm leading-relaxed text-graphite">
+        <InfoCircleOutlined aria-hidden="true" className="mt-1 text-pen" />
+        Le fichier ne liste que les créneaux signalés : un créneau absent vaut « disponible ». Les jours retirés ne
+        produisent aucun créneau.
+      </p>
+
+      {/* L'aperçu ne prend de la place que si on le demande. */}
+      <Collapse
+        items={[
+          {
+            key: "preview",
+            label: (
+              <span className="font-medium">
+                Voir un aperçu du fichier
+                {resources.length > 2 && <span className="font-normal text-graphite"> (2 premières ressources)</span>}
+              </span>
+            ),
+            children: (
+              <pre className="m-0 max-h-[60vh] overflow-auto rounded-md bg-[#f6f8fb] p-5 font-mono text-[12.5px] leading-relaxed text-graphite">
+                <Highlighted json={preview} />
+              </pre>
+            ),
+          },
+        ]}
+      />
     </main>
   );
 }

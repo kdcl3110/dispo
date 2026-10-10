@@ -4,11 +4,12 @@
 
 import Link from "next/link";
 
+import { CalendarPicker } from "@/components/admin/calendar-picker";
 import { ResourcePicker } from "@/components/admin/resource-picker";
 import { AvailabilityBoard } from "@/components/availability-grid/board";
 import type { ExceptionMap } from "@/components/availability-grid/grid";
 import { getExceptions } from "@/lib/availability";
-import { getDefaultCalendar } from "@/lib/calendar";
+import { defaultCalendarId, getCalendar, listCalendars } from "@/lib/calendar";
 import { listResources } from "@/lib/resource";
 import { requireAdmin } from "@/lib/session";
 import { calendarDays, generateSlots, slotKey } from "@/lib/slots";
@@ -16,12 +17,12 @@ import { calendarDays, generateSlots, slotKey } from "@/lib/slots";
 export default async function AdminAvailabilityPage({ searchParams }: PageProps<"/admin/availability">) {
   await requireAdmin();
 
-  const [calendar, resources] = await Promise.all([getDefaultCalendar(), listResources()]);
+  const [calendars, resources, params] = await Promise.all([listCalendars(), listResources(), searchParams]);
 
-  if (!calendar) {
+  if (calendars.length === 0) {
     return (
       <Message title="Aucun calendrier">
-        Configurez d&apos;abord le calendrier : la grille en découle.{" "}
+        Créez d&apos;abord un calendrier : la grille en découle.{" "}
         <Link href="/admin/calendars">Aller aux calendriers</Link>
       </Message>
     );
@@ -35,9 +36,10 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
     );
   }
 
-  // Ressource demandée dans l'URL, sinon la première de la liste.
-  const { resource: requested } = await searchParams;
-  const resource = resources.find((r) => r.id === requested) ?? resources[0];
+  // Calendrier et ressource demandés dans l'URL, sinon ceux proposés par défaut.
+  const calendarId = calendars.find((c) => c.id === params.calendar)?.id ?? defaultCalendarId(calendars)!;
+  const calendar = (await getCalendar(calendarId))!;
+  const resource = resources.find((r) => r.id === params.resource) ?? resources[0];
 
   const exceptions = await getExceptions(calendar.id, resource.id);
   const initialExceptions: ExceptionMap = Object.fromEntries(
@@ -55,11 +57,14 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
         </p>
       </div>
 
-      <ResourcePicker resources={resources} selectedId={resource.id} />
+      <div className="flex flex-wrap gap-x-6 gap-y-4">
+        <CalendarPicker calendars={calendars} selectedId={calendar.id} />
+        <ResourcePicker resources={resources} selectedId={resource.id} />
+      </div>
 
       {/* key : changer de ressource repart d'un état propre. */}
       <AvailabilityBoard
-        key={resource.id}
+        key={`${calendar.id}-${resource.id}`}
         resourceId={resource.id}
         calendar={calendar}
         initialExceptions={initialExceptions}

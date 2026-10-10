@@ -11,6 +11,7 @@ import {
   CheckCircleFilled,
   ClockCircleOutlined,
   EditOutlined,
+  ExportOutlined,
   InfoCircleOutlined,
   SendOutlined,
 } from "@ant-design/icons";
@@ -180,6 +181,13 @@ function Summary({
             </p>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button icon={<EditOutlined />} href={`/admin/availability?calendar=${calendar.id}`}>
+              Saisir des disponibilités
+            </Button>
+            <Button icon={<ExportOutlined />} href={`/admin/export?calendar=${calendar.id}`}>
+              Exporter
+            </Button>
           {calendar.publishedAt ? (
             <span className="inline-flex items-center gap-2 text-sm text-pen">
               <CheckCircleFilled aria-hidden="true" />
@@ -193,11 +201,12 @@ function Summary({
               cancelText="Annuler"
               onConfirm={confirmPublish}
             >
-              <Button type="primary" size="large" icon={<SendOutlined />} loading={publishing}>
+              <Button type="primary" icon={<SendOutlined />} loading={publishing}>
                 Publier le calendrier
               </Button>
             </Popconfirm>
           )}
+          </div>
         </div>
 
         <p className="flex items-start gap-3 rounded-lg bg-desk px-4 py-3 text-sm leading-relaxed">

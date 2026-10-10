@@ -114,6 +114,12 @@ export async function listCalendars({ publishedOnly = false } = {}): Promise<Cal
   });
 }
 
+// Calendrier proposé quand aucun n'est choisi : le publié le plus récent,
+// sinon le plus récent tout court. `rows` vient de listCalendars (déjà trié).
+export function defaultCalendarId(rows: CalendarRow[]) {
+  return (rows.find((r) => r.status === "published") ?? rows[0])?.id;
+}
+
 // Nombre de créneaux déjà signalés sur ce calendrier.
 export async function countExceptions(calendarId: string) {
   return prisma.availability.count({ where: { calendarId } });
