@@ -68,7 +68,7 @@ src/
       calendar.ts          Configuration du calendrier (règles 7 à 11)
 
   components/              UI réutilisable
-    ui/                    Composants génériques
+    ui/                    Thème Ant Design et fournisseurs (layout racine)
     admin/                 Barre latérale de la zone admin
     calendar/              Étapes, formulaire de configuration
     auth/                  Pages de connexion : formulaire admin, feuille d'exemple
