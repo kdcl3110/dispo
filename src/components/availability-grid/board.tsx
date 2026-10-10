@@ -7,8 +7,9 @@
 // Option `quickMarking` (écran admin) : un mode « au clic » où chaque clic
 // applique directement un statut choisi d'avance, sans ouvrir la fenêtre.
 
-import { App, Button, Input, Popconfirm, Segmented, Select } from "antd";
-import { useState, useTransition } from "react";
+import { ClearOutlined, CopyOutlined } from "@ant-design/icons";
+import { App, Button, Input, Popconfirm, Popover, Segmented, Select } from "antd";
+import { useState, useTransition, type ReactNode } from "react";
 
 import { copyWeekToAll, resetAll, saveSlot, type SaveSlotResult, type SlotState } from "@/actions/availability";
 import { calendarWeekGrid, generateSlots, slotKey, type ISODate, type Time } from "@/lib/slots";
@@ -38,12 +39,14 @@ export function AvailabilityBoard({
   initialExceptions,
   totalSlots,
   quickMarking = false,
+  leading,
 }: {
   resourceId: string;
   calendar: GridCalendar;
   initialExceptions: ExceptionMap;
   totalSlots: number;
   quickMarking?: boolean;
+  leading?: ReactNode; // contrôles placés avant le mode « au clic » (sélecteurs de l'écran admin)
 }) {
   const [exceptions, setExceptions] = useState(initialExceptions);
   const [selected, setSelected] = useState<{ date: ISODate; start: Time } | null>(null);
@@ -130,93 +133,94 @@ export function AvailabilityBoard({
     comment: exceptions[slotKey(selected.date, selected.start)]?.comment ?? "",
   };
 
+  const weekOptions = weeks.map((w, i) => ({
+    value: w.monday,
+    label: `Semaine ${i + 1}, ${shortDate.format(new Date(`${w.monday}T00:00:00Z`))}`,
+  }));
+
   return (
-    <div className="flex flex-col gap-5">
-      {quickMarking && (
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-b border-rule pb-5">
-          <div className="flex flex-col gap-1.5">
-            <span id="click-mode-label" className="text-[13px] font-semibold">
-              Au clic sur un créneau
-            </span>
-            <Segmented<ClickMode>
-              aria-labelledby="click-mode-label"
-              value={mode}
-              onChange={(value) => {
-                setMode(value);
-                setCommentMissing(false);
-              }}
-              options={MODES.map((m) => ({
-                value: m.value,
-                label: (
-                  <span className="inline-flex items-center gap-2">
-                    {m.swatch && <span aria-hidden="true" className={`h-3 w-4.5 rounded-[3px] ${m.swatch}`} />}
-                    {m.label}
-                  </span>
-                ),
-              }))}
-            />
-          </div>
-          {(mode === "UNAVAILABLE" || mode === "IF_NEEDED") && (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="quick-comment" className="text-[13px] font-semibold">
-                Commentaire appliqué à chaque clic
-              </label>
-              <Input
-                id="quick-comment"
-                value={quickComment}
-                onChange={(e) => {
-                  setQuickComment(e.target.value);
+    // Le tableau prend toute la hauteur que lui laisse la page ; seule la
+    // grille défile (voir grid.tsx). Au-dessus : au plus deux lignes compactes.
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {(leading || quickMarking) && (
+        <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+          {leading}
+          {quickMarking && (
+            <div className="flex flex-col gap-1">
+              <span id="click-mode-label" className="text-[13px] font-semibold">
+                Au clic sur un créneau
+              </span>
+              <Segmented<ClickMode>
+                aria-labelledby="click-mode-label"
+                value={mode}
+                onChange={(value) => {
+                  setMode(value);
                   setCommentMissing(false);
                 }}
-                maxLength={MAX_COMMENT_LENGTH}
-                status={commentMissing ? "error" : undefined}
-                placeholder="Par exemple : maintenance du projecteur"
-                className="w-85!"
+                options={MODES.map((m) => ({
+                  value: m.value,
+                  label: (
+                    <span className="inline-flex items-center gap-2">
+                      {m.swatch && <span aria-hidden="true" className={`h-3 w-4.5 rounded-[3px] ${m.swatch}`} />}
+                      {m.label}
+                    </span>
+                  ),
+                }))}
               />
             </div>
+          )}
+          {quickMarking && (mode === "UNAVAILABLE" || mode === "IF_NEEDED") && (
+            <Input
+              aria-label="Commentaire appliqué à chaque clic"
+              value={quickComment}
+              onChange={(e) => {
+                setQuickComment(e.target.value);
+                setCommentMissing(false);
+              }}
+              maxLength={MAX_COMMENT_LENGTH}
+              status={commentMissing ? "error" : undefined}
+              placeholder="Commentaire appliqué à chaque clic"
+              className="w-75!"
+            />
           )}
         </div>
       )}
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {/* Barre d'outils : légende à gauche, compteur et actions groupées à droite. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <AvailabilityLegend />
-        <p className="text-[15px]">
-          <strong className="font-semibold">
-            {count} créneau{count > 1 ? "x" : ""} signalé{count > 1 ? "s" : ""}
-          </strong>{" "}
-          sur {totalSlots}
-        </p>
-      </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <p role="status" className="text-[13px] text-graphite">
+            <strong className="font-semibold text-ink">
+              {count} créneau{count > 1 ? "x" : ""} signalé{count > 1 ? "s" : ""}
+            </strong>{" "}
+            sur {totalSlots}
+            {savedAt && `, enregistré à ${time.format(savedAt)}`}
+          </p>
 
-      <AvailabilityGrid calendar={calendar} exceptions={exceptions} onSlotClick={handleClick} />
-
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <p role="status" className="text-sm text-graphite">
-          {savedAt
-            ? `Modifications enregistrées à ${time.format(savedAt)}.`
-            : "Pour « si nécessaire » et « indisponible », un commentaire est demandé."}
-        </p>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Select
-            aria-label="Semaine modèle"
-            value={modelWeek}
-            onChange={setModelWeek}
-            options={weeks.map((w, i) => ({ value: w.monday, label: `Semaine ${i + 1}, ${shortDate.format(new Date(`${w.monday}T00:00:00Z`))}` }))}
-            className="w-50!"
-          />
-          <Popconfirm
-            title={`Recopier la semaine ${modelIndex + 1} sur tout le quadrimestre ?`}
-            description={`Ses ${plural(modelCount, "créneau signalé", "créneaux signalés")} seront ajoutés aux autres semaines. Ce qui y est déjà signalé est gardé.`}
-            okText="Recopier"
-            cancelText="Annuler"
-            onConfirm={() => runBulk("copy")}
-            disabled={modelCount === 0}
+          <Popover
+            trigger="click"
+            placement="bottomRight"
+            title="Recopier une semaine sur tout le calendrier"
+            content={
+              <div className="flex w-72 flex-col gap-3">
+                <Select aria-label="Semaine modèle" value={modelWeek} onChange={setModelWeek} options={weekOptions} />
+                <p className="text-[13px] text-graphite">
+                  {modelCount === 0
+                    ? `Aucun créneau signalé en semaine ${modelIndex + 1}.`
+                    : `Ses ${plural(modelCount, "créneau signalé", "créneaux signalés")} seront ajoutés aux autres semaines. Ce qui y est déjà signalé est gardé.`}
+                </p>
+                <Button type="primary" disabled={modelCount === 0} loading={bulk === "copy"} onClick={() => runBulk("copy")}>
+                  Recopier
+                </Button>
+              </div>
+            }
           >
-            <Button disabled={modelCount === 0} loading={bulk === "copy"} title={modelCount === 0 ? `Aucun créneau signalé en semaine ${modelIndex + 1}` : undefined}>
-              Appliquer à tout le quadrimestre
+            <Button size="small" icon={<CopyOutlined />}>
+              Recopier une semaine…
             </Button>
-          </Popconfirm>
+          </Popover>
+
           <Popconfirm
             title="Tout remettre à disponible ?"
             description={`${plural(count, "créneau signalé sera effacé", "créneaux signalés seront effacés")}, avec leurs commentaires.`}
@@ -226,12 +230,14 @@ export function AvailabilityBoard({
             onConfirm={() => runBulk("reset")}
             disabled={count === 0}
           >
-            <Button danger disabled={count === 0} loading={bulk === "reset"}>
+            <Button size="small" danger icon={<ClearOutlined />} disabled={count === 0} loading={bulk === "reset"}>
               Tout remettre à disponible
             </Button>
           </Popconfirm>
         </div>
       </div>
+
+      <AvailabilityGrid calendar={calendar} exceptions={exceptions} onSlotClick={handleClick} />
 
       {open && (
         <SlotDialog

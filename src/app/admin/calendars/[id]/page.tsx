@@ -20,7 +20,7 @@ export default async function CalendarPage({ params }: PageProps<"/admin/calenda
   const exceptions = await countExceptions(calendar.id);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-6 py-8 md:px-10">
+    <main className="flex flex-1 flex-col gap-5 px-6 py-5 md:px-10">
       <Link href="/admin/calendars" className="inline-flex items-center gap-2 self-start text-sm font-medium">
         <ArrowLeftOutlined aria-hidden="true" />
         Tous les calendriers

@@ -21,7 +21,7 @@ export function CalendarPicker({
   const params = useSearchParams();
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <label htmlFor="calendar-picker" className="text-[13px] font-semibold">
         Calendrier
       </label>
@@ -46,7 +46,7 @@ export function CalendarPicker({
             </span>
           ),
         }))}
-        className="w-80!"
+        className="w-72!"
       />
     </div>
   );

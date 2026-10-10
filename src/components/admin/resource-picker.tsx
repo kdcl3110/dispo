@@ -24,7 +24,7 @@ export function ResourcePicker({
   const params = useSearchParams();
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <label htmlFor="resource-picker" className="text-[13px] font-semibold">
         Ressource
       </label>
@@ -43,7 +43,7 @@ export function ResourcePicker({
           title: group.label,
           options: resources.filter((r) => r.type === group.type).map((r) => ({ value: r.id, label: r.name })),
         })).filter((group) => group.options.length > 0)}
-        className="w-80!"
+        className="w-64!"
       />
     </div>
   );

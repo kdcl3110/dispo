@@ -15,7 +15,7 @@ export default async function ResourcesPage() {
   const signaled = resources.reduce((n, r) => n + r.unavailable + r.ifNeeded, 0);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-6 py-8 md:px-10">
+    <main className="flex flex-1 flex-col gap-5 px-6 py-5 md:px-10">
       <PageHeader
         icon={<TeamOutlined />}
         title="Ressources"

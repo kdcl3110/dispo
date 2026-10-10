@@ -12,7 +12,7 @@ export default async function CalendarsPage() {
   const calendars = await listCalendars();
 
   return (
-    <main className="flex flex-1 flex-col gap-8 px-6 py-8 md:px-10">
+    <main className="flex flex-1 flex-col gap-5 px-6 py-5 md:px-10">
       <PageHeader
         icon={<CalendarOutlined />}
         title="Calendriers"

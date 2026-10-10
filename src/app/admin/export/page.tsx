@@ -57,7 +57,7 @@ export default async function ExportPage({ searchParams }: PageProps<"/admin/exp
 
   if (!calendarId || !document) {
     return (
-      <main className="flex flex-1 flex-col gap-8 px-6 py-8 md:px-10">
+      <main className="flex flex-1 flex-col gap-5 px-6 py-5 md:px-10">
         <PageHeader icon={<ExportOutlined />} title="Export JSON" />
         <p className="max-w-[560px] text-[15px] leading-relaxed text-graphite">
           Créez d&apos;abord un calendrier : l&apos;export en découle. <Link href="/admin/calendars">Aller aux calendriers</Link>
@@ -72,7 +72,7 @@ export default async function ExportPage({ searchParams }: PageProps<"/admin/exp
   const preview = JSON.stringify(previewOf(document), null, 2);
 
   return (
-    <main className="flex flex-1 flex-col gap-8 px-6 py-8 md:px-10">
+    <main className="flex flex-1 flex-col gap-5 px-6 py-5 md:px-10">
       <PageHeader
         icon={<ExportOutlined />}
         title="Export JSON"
@@ -86,7 +86,7 @@ export default async function ExportPage({ searchParams }: PageProps<"/admin/exp
       />
 
       {/* Une seule barre : quoi exporter, et le bouton pour le faire. */}
-      <div className="flex flex-wrap items-end justify-between gap-6 border-t border-rule pt-6">
+      <div className="flex flex-wrap items-end justify-between gap-6 border-t border-rule pt-4">
         <CalendarPicker calendars={calendars} selectedId={calendarId} />
         <div className="flex flex-col items-end gap-1.5">
           <Button type="primary" size="large" icon={<DownloadOutlined />} href={`/admin/export/download?calendar=${calendarId}`}>

@@ -75,30 +75,42 @@ export function AvailabilityGrid({
   const slots = generateSlots(calendar);
   const holidays = new Set(calendar.holidays.map((h) => h.date));
 
-  // Lignes d'une journée : les créneaux, et une ligne fine pour chaque pause.
+  // Lignes d'une journée : les créneaux, et une ligne fine pour chaque vraie
+  // pause. Les intercours (trous courts entre deux créneaux) ne prennent pas
+  // de ligne : seule une pause configurée qui tombe entre deux créneaux en a une.
   const rows: ({ kind: "slot"; start: Time; end: Time } | { kind: "break"; label: string })[] = [];
   slots.forEach((slot, i) => {
     const previous = slots[i - 1];
-    if (previous && previous.end !== slot.start) {
-      const pause = calendar.breaks.find((b) => b.start === previous.end);
-      rows.push({ kind: "break", label: pause?.name || "Pause" });
+    if (previous) {
+      calendar.breaks
+        .filter((b) => b.start >= previous.end && b.start < slot.start)
+        .sort((a, b) => a.start.localeCompare(b.start))
+        .forEach((b) => rows.push({ kind: "break", label: `${b.name || "Pause"}, ${b.start}–${b.end}` }));
     }
     rows.push({ kind: "slot", start: slot.start, end: slot.end });
   });
   const lastSlot = rows.findLastIndex((r) => r.kind === "slot");
 
+  // Le cadre défile dans les deux sens ; la ligne des semaines reste figée en
+  // haut, et les colonnes jour / horaire restent figées à gauche (sticky).
+  // Le parent décide de la hauteur : la grille prend la place restante.
+  const stickyLeft = "sticky z-10 bg-paper";
   return (
-    <div className="overflow-x-auto rounded-lg border border-rule px-5 pt-1 pb-4">
+    <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-rule">
       <table className="w-full min-w-[1100px] border-separate border-spacing-0">
         <thead>
           <tr>
-            <th scope="col" colSpan={2} className="w-49 border-r-2 border-b border-r-margin border-b-seyes-strong">
+            <th
+              scope="col"
+              colSpan={2}
+              className="sticky top-0 left-0 z-30 w-49 border-r-2 border-b border-r-margin border-b-seyes-strong bg-paper"
+            >
               <span className="sr-only">Jour et horaire</span>
             </th>
             {weeks.map((week, w) => (
-              <th key={week.monday} scope="col" className="h-13 border-b border-seyes-strong px-0.5 font-normal">
-                <span className="block font-condensed text-sm leading-none font-semibold">Sem. {w + 1}</span>
-                <span className="mt-1 block text-xs leading-none text-graphite">{shortDate.format(utc(week.monday))}</span>
+              <th key={week.monday} scope="col" className="sticky top-0 z-20 h-10 border-b border-seyes-strong bg-paper px-0.5 font-normal">
+                <span className="block font-condensed text-[13px] leading-none font-semibold">Sem. {w + 1}</span>
+                <span className="mt-0.5 block text-[11px] leading-none text-graphite">{shortDate.format(utc(week.monday))}</span>
               </th>
             ))}
           </tr>
@@ -112,32 +124,34 @@ export function AvailabilityGrid({
 
               if (row.kind === "break") {
                 return (
-                  <tr key={`break-${r}`} className="h-5.5">
-                    <td className={`border-b ${rule}`} />
-                    <td className={`border-r-2 border-b border-r-margin ${rule} pr-3 text-right text-xs text-graphite`}>{row.label}</td>
+                  <tr key={`break-${r}`} className="h-4">
+                    <td className={`${stickyLeft} left-0 border-b ${rule}`} />
+                    <td className={`${stickyLeft} left-19 border-r-2 border-b border-r-margin ${rule} pr-3 text-right text-[11px] leading-none text-graphite`}>
+                      {row.label}
+                    </td>
                     <td colSpan={weeks.length} className={`border-b ${rule}`} />
                   </tr>
                 );
               }
 
               return (
-                <tr key={row.start} className="h-9">
-                  <th scope="row" className={`w-19 border-b ${rule} text-left align-middle text-sm font-semibold`}>
+                <tr key={row.start} className="h-[30px]">
+                  <th scope="row" className={`${stickyLeft} left-0 w-19 border-b ${rule} pl-4 text-left align-middle text-[13px] font-semibold`}>
                     {r === 0 && DAY_NAMES[day]}
                   </th>
-                  <th scope="row" className={`w-30 border-r-2 border-b border-r-margin ${rule} pr-3 text-right font-condensed text-sm font-medium text-graphite`}>
+                  <th scope="row" className={`${stickyLeft} left-19 w-30 border-r-2 border-b border-r-margin ${rule} pr-3 text-right font-condensed text-[13px] font-medium text-graphite`}>
                     {row.start}–{row.end}
                   </th>
                   {weeks.map((week) => {
                     const date = week.dates[d];
-                    const cell = `border-b ${rule} px-0.5 py-1 ${weeks[0] === week ? "pl-2" : ""}`;
+                    const cell = `border-b ${rule} px-0.5 py-[3px] ${weeks[0] === week ? "pl-2" : ""} ${weeks.at(-1) === week ? "pr-3" : ""}`;
 
                     if (!date) return <td key={week.monday} className={cell} />;
 
                     if (holidays.has(date)) {
                       return (
                         <td key={week.monday} className={cell}>
-                          <span className="flex h-7 items-center justify-center rounded-[3px] border border-[#e0e4ea] bg-hatch text-xs font-semibold text-graphite">
+                          <span className="flex h-6 items-center justify-center rounded-[3px] border border-[#e0e4ea] bg-hatch text-[11px] font-semibold text-graphite">
                             Férié
                           </span>
                         </td>
@@ -156,7 +170,7 @@ export function AvailabilityGrid({
                           disabled={!onSlotClick}
                           aria-label={description}
                           title={exception?.comment || undefined}
-                          className={`flex h-7 w-full cursor-pointer items-center justify-center rounded-[3px] border text-xs font-semibold disabled:cursor-default ${cellClass[status]}`}
+                          className={`flex h-6 w-full cursor-pointer items-center justify-center rounded-[3px] border text-[11px] font-semibold disabled:cursor-default ${cellClass[status]}`}
                         >
                           {status === "IF_NEEDED" && "Si nécessaire"}
                           {status === "UNAVAILABLE" && "Indisponible"}

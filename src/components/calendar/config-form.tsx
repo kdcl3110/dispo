@@ -14,9 +14,10 @@ import { useState, useTransition } from "react";
 
 import { saveCalendar } from "@/actions/calendar";
 import type { CalendarConfig } from "@/lib/calendar";
-import { calendarDays, generateSlots, toMin } from "@/lib/slots";
+import { calendarDays, generateSlots, toMin, unusedMinutes } from "@/lib/slots";
 import {
   calendarWeeks,
+  formatDuration,
   MAX_WEEKS,
   validateCalendarForm,
   type ValidationError,
@@ -34,10 +35,33 @@ const WEEK_DAYS = [
 
 const DURATIONS = [
   { value: 30, label: "30 minutes" },
+  { value: 45, label: "45 minutes" },
   { value: 60, label: "1 heure" },
   { value: 90, label: "1 h 30" },
   { value: 120, label: "2 heures" },
+  { value: 180, label: "3 heures" },
 ];
+
+const GAPS = [
+  { value: 0, label: "Aucun" },
+  { value: 5, label: "5 minutes" },
+  { value: 10, label: "10 minutes" },
+  { value: 15, label: "15 minutes" },
+  { value: 20, label: "20 minutes" },
+  { value: 30, label: "30 minutes" },
+  { value: 45, label: "45 minutes" },
+  { value: 60, label: "1 heure" },
+];
+
+// Horaires types de la HE2B : 4 créneaux de 2 h (08:00, 10:30, 13:30, 16:00).
+// Point de départ d'un nouveau calendrier, et bouton « Horaires HE2B ».
+const HE2B_HOURS = {
+  dayStart: "08:00",
+  dayEnd: "18:00",
+  slotDuration: 120,
+  slotGap: 30,
+  breaks: [{ name: "Pause de midi", start: "12:30", end: "13:30" }],
+};
 
 // Valeurs proposées tant qu'aucun calendrier n'existe.
 const DEFAULTS: CalendarConfig = {
@@ -45,11 +69,7 @@ const DEFAULTS: CalendarConfig = {
   startDate: "",
   endDate: "",
   weekDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-  dayStart: "08:00",
-  dayEnd: "18:00",
-  slotDuration: 120,
-  slotGap: 0,
-  breaks: [{ name: "Pause déjeuner", start: "12:00", end: "14:00" }],
+  ...HE2B_HOURS,
 };
 
 // ---------------------------------------------------------------- conversions
@@ -194,7 +214,7 @@ export function CalendarConfigForm({
   // --- Calculs en direct pour l'aperçu, seulement sur des données cohérentes.
   const liveErrors = validateCalendarForm(config, holidays);
   const hasError = (test: (field: string) => boolean) => liveErrors.some((e) => test(e.field));
-  const gridOk = !hasError((f) => ["dayStart", "dayEnd", "slotDuration"].includes(f) || f.startsWith("breaks."));
+  const gridOk = !hasError((f) => ["dayStart", "dayEnd", "slotDuration", "slotGap"].includes(f) || f.startsWith("breaks."));
   const periodOk = !hasError((f) => ["startDate", "endDate", "weekDays"].includes(f));
   const datesOk = Boolean(config.startDate && config.endDate && config.startDate <= config.endDate);
 
@@ -202,10 +222,34 @@ export function CalendarConfigForm({
   const slots = gridOk ? generateSlots(config) : [];
   const dayCount = periodOk && datesOk ? calendarDays({ ...config, holidays: holidays.map((h) => h.date) }).length : null;
 
-  const preview = [
-    ...slots.map((s) => ({ start: s.start, label: `${s.start}–${s.end}`, isBreak: false })),
-    ...config.breaks.map((b) => ({ start: b.start, label: `${b.name || "Pause"}, ${b.start}–${b.end}`, isBreak: true })),
-  ].sort((a, b) => toMin(a.start) - toMin(b.start));
+  // Déroulé d'une journée : les créneaux, et entre eux soit une pause (si une
+  // pause y tombe), soit l'intercours.
+  type Row = { key: string; label: string; kind: "slot" | "break" | "gap" };
+  const sortedBreaks = [...config.breaks].sort((a, b) => toMin(a.start) - toMin(b.start));
+  const preview: Row[] = [];
+  slots.forEach((slot, i) => {
+    const from = i === 0 ? toMin(config.dayStart) : toMin(slots[i - 1].end);
+    const to = toMin(slot.start);
+    const between = sortedBreaks.filter((b) => toMin(b.start) >= from && toMin(b.start) < to);
+    between.forEach((b) => preview.push({ key: `b-${b.start}`, label: `${b.name || "Pause"}, ${b.start}–${b.end}`, kind: "break" }));
+    if (i > 0 && between.length === 0 && to > from) {
+      preview.push({ key: `g-${slot.start}`, label: `Intercours, ${formatDuration(to - from)}`, kind: "gap" });
+    }
+    preview.push({ key: `s-${slot.start}`, label: `${slot.start}–${slot.end}`, kind: "slot" });
+  });
+  const unused = gridOk ? unusedMinutes(config) : 0;
+
+  // « Horaires HE2B » : ne touche qu'aux horaires (pas au nom ni à la période).
+  function applyHe2b() {
+    form.setFieldsValue({
+      dayStart: toTime(HE2B_HOURS.dayStart),
+      dayEnd: toTime(HE2B_HOURS.dayEnd),
+      slotDuration: HE2B_HOURS.slotDuration,
+      slotGap: HE2B_HOURS.slotGap,
+      breaks: HE2B_HOURS.breaks.map((b) => ({ name: b.name, start: toTime(b.start), end: toTime(b.end) })),
+    });
+    if (checking) revalidate();
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-10 lg:flex-row">
@@ -243,6 +287,15 @@ export function CalendarConfigForm({
           <Checkbox.Group options={WEEK_DAYS} />
         </Form.Item>
 
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-desk px-4 py-3">
+          <span className="text-sm text-graphite">
+            Horaires HE2B : 4 créneaux de 2 h, intercours de 30 min, pause de midi 12:30–13:30.
+          </span>
+          <Button size="small" onClick={applyHe2b} disabled={locked}>
+            Appliquer les horaires HE2B
+          </Button>
+        </div>
+
         <div className="flex flex-wrap gap-x-4">
           <Form.Item label="Début de journée" name="dayStart" className="min-w-40 flex-1">
             <TimePicker {...timePicker} className="w-full" />
@@ -250,8 +303,13 @@ export function CalendarConfigForm({
           <Form.Item label="Fin de journée" name="dayEnd" className="min-w-40 flex-1">
             <TimePicker {...timePicker} className="w-full" />
           </Form.Item>
-          <Form.Item label="Durée d'un créneau" name="slotDuration" className="min-w-40 flex-1">
+        </div>
+        <div className="flex flex-wrap gap-x-4">
+          <Form.Item label="Durée d'un créneau" name="slotDuration" extra="La même pour tous les créneaux." className="min-w-40 flex-1">
             <Select options={DURATIONS} />
+          </Form.Item>
+          <Form.Item label="Intercours" name="slotGap" extra="Temps libre entre deux créneaux." className="min-w-40 flex-1">
+            <Select options={GAPS} />
           </Form.Item>
         </div>
 
@@ -306,8 +364,14 @@ export function CalendarConfigForm({
             <ul className="flex flex-col border-t border-seyes-strong">
               {preview.map((row) => (
                 <li
-                  key={`${row.isBreak ? "b" : "s"}-${row.start}`}
-                  className={`flex h-9 items-center border-b border-seyes px-2.5 font-condensed text-sm font-medium ${row.isBreak ? "bg-hatch text-graphite" : "text-ink"}`}
+                  key={row.key}
+                  className={`flex items-center border-b border-seyes px-2.5 font-condensed ${
+                    row.kind === "slot"
+                      ? "h-9 text-sm font-medium text-ink"
+                      : row.kind === "break"
+                        ? "h-9 bg-hatch text-sm font-medium text-graphite"
+                        : "h-6 text-xs text-graphite"
+                  }`}
                 >
                   {row.label}
                 </li>
@@ -323,7 +387,17 @@ export function CalendarConfigForm({
           )}
         </div>
 
-        {gridOk && <Alert type="success" showIcon title="La journée se découpe sans reste : aucun créneau n'est coupé." />}
+        {gridOk &&
+          (unused > 0 ? (
+            <Alert
+              type="info"
+              showIcon
+              title={`${formatDuration(unused)} non utilisée${unused > 1 ? "s" : ""} en fin de journée.`}
+              description="Le créneau suivant ne tiendrait plus avant la fin. Ce n'est pas une erreur."
+            />
+          ) : (
+            <Alert type="success" showIcon title={`Chaque jour : ${slots.length} créneaux de ${formatDuration(config.slotDuration)}.`} />
+          ))}
       </aside>
     </div>
   );

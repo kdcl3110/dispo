@@ -164,9 +164,9 @@ function Summary({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* --- État et action principale */}
-      <section aria-labelledby="calendar-name" className="flex flex-col gap-5 rounded-xl border border-rule p-6">
+      <section aria-labelledby="calendar-name" className="flex flex-col gap-4 rounded-xl border border-rule p-5">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="flex flex-col gap-2">
             <Tag color={calendar.publishedAt ? "blue" : undefined} className="me-0! self-start">
@@ -215,9 +215,9 @@ function Summary({
         </p>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
         {/* --- Horaires */}
-        <section aria-labelledby="hours-title" className="flex flex-col gap-5 rounded-xl border border-rule p-6">
+        <section aria-labelledby="hours-title" className="flex flex-col gap-4 rounded-xl border border-rule p-5">
           <div className="flex items-center justify-between gap-4">
             <h3 id="hours-title" className="flex items-center gap-2.5 text-lg font-semibold">
               <ClockCircleOutlined aria-hidden="true" className="text-pen" />
@@ -246,7 +246,7 @@ function Summary({
         </section>
 
         {/* --- Congés */}
-        <section aria-labelledby="holidays-title" className="flex flex-col gap-5 rounded-xl border border-rule p-6">
+        <section aria-labelledby="holidays-title" className="flex flex-col gap-4 rounded-xl border border-rule p-5">
           <div className="flex items-center justify-between gap-4">
             <h3 id="holidays-title" className="flex items-center gap-2.5 text-lg font-semibold">
               <CarryOutOutlined aria-hidden="true" className="text-pen" />

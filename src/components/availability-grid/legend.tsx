@@ -9,11 +9,11 @@ const items = [
 
 export function AvailabilityLegend({ note }: { note?: string }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-7 gap-y-2">
-      <ul className="flex flex-wrap items-center gap-x-7 gap-y-2 text-sm">
+    <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-1.5">
+      <ul className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px]">
         {items.map((item) => (
           <li key={item.label} className="inline-flex items-center gap-2">
-            <span aria-hidden="true" className={`h-3.5 w-5.5 rounded-[3px] ${item.swatch}`} />
+            <span aria-hidden="true" className={`h-3 w-4.5 rounded-[3px] ${item.swatch}`} />
             {item.label}
           </li>
         ))}

@@ -30,7 +30,7 @@ export default async function CalendarGridPage({ params }: PageProps<"/availabil
   // Ne devrait pas arriver : la fiche est créée à la première connexion.
   if (!resource) {
     return (
-      <main className="flex flex-1 flex-col gap-2 px-6 py-12 md:px-10">
+      <main className="flex flex-1 flex-col gap-2 px-6 py-8 md:px-10">
         <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">Votre fiche est introuvable</h1>
         <p className="max-w-[560px] text-[15px] leading-relaxed text-graphite">
           Déconnectez-vous puis reconnectez-vous avec votre compte Google pour la recréer.
@@ -46,21 +46,21 @@ export default async function CalendarGridPage({ params }: PageProps<"/availabil
   const days = calendarDays({ ...calendar, holidays: calendar.holidays.map((h) => h.date) });
 
   return (
-    <main className="flex flex-1 flex-col gap-5 px-6 py-7 md:px-10">
-      {/* Retour à la liste seulement s'il y en a une (plusieurs calendriers publiés). */}
-      {published.length > 1 && (
-        <Link href="/availability" className="inline-flex items-center gap-2 self-start text-sm font-medium">
-          <ArrowLeftOutlined aria-hidden="true" />
-          Tous mes calendriers
-        </Link>
-      )}
-
-      <div className="flex flex-col gap-1.5">
-        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">{calendar.name}</h1>
-        <p className="max-w-[760px] text-[15px] leading-relaxed text-graphite">
-          Du {format(calendar.startDate)} au {format(calendar.endDate)}. Tout est disponible par défaut : cliquez sur
-          un créneau pour signaler un problème.
-        </p>
+    // Grand écran : la page tient dans la fenêtre (sous l'en-tête de 4 rem) et
+    // seule la grille défile. Petit écran : la page défile normalement.
+    <main className="flex flex-1 flex-col gap-3 px-6 py-4 md:px-10 lg:h-[calc(100dvh-4rem)] lg:flex-none lg:overflow-hidden">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        {/* Retour à la liste seulement s'il y en a une (plusieurs calendriers publiés). */}
+        {published.length > 1 && (
+          <Link href="/availability" className="inline-flex items-center gap-1.5 text-sm font-medium">
+            <ArrowLeftOutlined aria-hidden="true" />
+            Mes calendriers
+          </Link>
+        )}
+        <h1 className="text-xl leading-tight font-semibold tracking-[-0.01em]">{calendar.name}</h1>
+        <span className="text-sm text-graphite">
+          Du {format(calendar.startDate)} au {format(calendar.endDate)}. Cliquez sur un créneau pour signaler un problème.
+        </span>
       </div>
 
       <AvailabilityBoard

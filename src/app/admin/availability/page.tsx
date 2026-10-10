@@ -48,21 +48,17 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
   const days = calendarDays({ ...calendar, holidays: calendar.holidays.map((h) => h.date) });
 
   return (
-    <main className="flex flex-1 flex-col gap-5 px-6 py-8 md:px-10">
-      <div className="flex flex-col gap-1.5">
-        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">Disponibilités d&apos;une ressource</h1>
-        <p className="max-w-[680px] text-[15px] leading-relaxed text-graphite">
-          Signalez les créneaux où un local, un équipement ou un membre du personnel n&apos;est pas disponible.
-          {!calendar.publishedAt && " Le calendrier n'est pas encore publié : seule l'administration peut saisir."}
-        </p>
+    // Grand écran : la page tient dans la fenêtre et seule la grille défile.
+    <main className="flex flex-1 flex-col gap-3 px-6 py-4 md:px-10 lg:h-dvh lg:flex-none lg:overflow-hidden">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h1 className="text-xl leading-tight font-semibold tracking-[-0.01em]">Saisie des disponibilités</h1>
+        <span className="text-sm text-graphite">
+          Pour un local, un équipement ou un membre du personnel.
+          {!calendar.publishedAt && " Ce calendrier n'est pas encore publié : seule l'administration peut saisir."}
+        </span>
       </div>
 
-      <div className="flex flex-wrap gap-x-6 gap-y-4">
-        <CalendarPicker calendars={calendars} selectedId={calendar.id} />
-        <ResourcePicker resources={resources} selectedId={resource.id} />
-      </div>
-
-      {/* key : changer de ressource repart d'un état propre. */}
+      {/* key : changer de calendrier ou de ressource repart d'un état propre. */}
       <AvailabilityBoard
         key={`${calendar.id}-${resource.id}`}
         resourceId={resource.id}
@@ -70,6 +66,12 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
         initialExceptions={initialExceptions}
         totalSlots={days.length * generateSlots(calendar).length}
         quickMarking
+        leading={
+          <>
+            <CalendarPicker calendars={calendars} selectedId={calendar.id} />
+            <ResourcePicker resources={resources} selectedId={resource.id} />
+          </>
+        }
       />
     </main>
   );
@@ -77,7 +79,7 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
 
 function Message({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="flex flex-1 flex-col gap-2 px-6 py-12 md:px-10">
+    <main className="flex flex-1 flex-col gap-2 px-6 py-8 md:px-10">
       <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">{title}</h1>
       <p className="max-w-[560px] text-[15px] leading-relaxed text-graphite">{children}</p>
     </main>
