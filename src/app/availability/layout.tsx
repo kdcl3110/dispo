@@ -14,7 +14,9 @@ export default async function AvailabilityLayout({ children }: LayoutProps<"/ava
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex min-h-16 flex-wrap items-center justify-between gap-x-7 gap-y-3 border-b border-rule px-6 py-3 md:px-10">
+      {/* Collé en haut : le nom et « Se déconnecter » restent visibles pendant
+          qu'on fait défiler la grille. Fond blanc et z-index pour qu'elle passe dessous. */}
+      <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-x-7 gap-y-3 border-b border-rule bg-paper px-6 py-3 md:px-10">
         <div className="flex items-baseline gap-4">
           <span className="font-condensed text-2xl leading-none font-semibold tracking-[-0.01em]">dispo</span>
           {calendar?.publishedAt && <span className="text-sm text-graphite">{calendar.name}</span>}

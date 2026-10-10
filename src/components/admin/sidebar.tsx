@@ -37,10 +37,14 @@ export function AdminSidebar({ username }: { username: string }) {
   const pathname = usePathname();
 
   return (
+    // Hauteur de la fenêtre, collée en haut : la barre ne s'étire pas avec le
+    // contenu (une grille de 15 semaines est très haute), et « Se déconnecter »
+    // reste visible en bas de l'écran pendant qu'on fait défiler la page.
     <Layout.Sider
       width={232}
       breakpoint="md"
       collapsedWidth={0}
+      style={{ position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", overflowY: "auto" }}
       className="border-r border-rule"
     >
       <div className="flex h-full flex-col justify-between gap-8 py-7">
