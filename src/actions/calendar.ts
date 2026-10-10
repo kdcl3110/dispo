@@ -7,7 +7,8 @@ import { revalidatePath } from "next/cache";
 
 import {
   countExceptions,
-  getDefaultCalendar,
+  deleteCalendar,
+  getCalendar,
   publishCalendar,
   replaceHolidays,
   createCalendar,
@@ -24,6 +25,7 @@ export interface CalendarFormState {
   status: "idle" | "saved" | "invalid";
   errors: ValidationError[];
   values?: CalendarConfig;
+  calendarId?: string; // après une création : l'identifiant du nouveau calendrier
 }
 
 // État renvoyé au formulaire « Jours fériés et publication ».
@@ -66,7 +68,13 @@ export async function saveCalendar(
   await requireAdmin();
 
   const values = readForm(formData);
-  const current = await getDefaultCalendar();
+
+  // Champ « calendarId » absent : création. Présent : modification.
+  const calendarId = String(formData.get("calendarId") ?? "");
+  const current = calendarId ? await getCalendar(calendarId) : null;
+  if (calendarId && !current) {
+    return { status: "invalid", errors: [{ field: "form", message: "Ce calendrier n'existe plus. Rechargez la page." }], values };
+  }
 
   // Les jours fériés ne sont pas dans ce formulaire, mais ils doivent rester
   // dans la période (règle 11) : on valide avec ceux déjà enregistrés.
@@ -84,10 +92,10 @@ export async function saveCalendar(
 
   if (errors.length > 0) return { status: "invalid", errors, values };
 
+  const id = current ? current.id : await createCalendar(values);
   if (current) await updateCalendarConfig(current.id, values);
-  else await createCalendar(values);
-  revalidatePath("/admin", "layout");
-  return { status: "saved", errors: [], values };
+  revalidatePath("/", "layout");
+  return { status: "saved", errors: [], values, calendarId: id };
 }
 
 // Le formulaire envoie la liste complète des jours retirés en JSON, dans un
@@ -111,9 +119,9 @@ export async function saveHolidays(
 ): Promise<HolidaysFormState> {
   await requireAdmin();
 
-  const calendar = await getDefaultCalendar();
+  const calendar = await getCalendar(String(formData.get("calendarId") ?? ""));
   if (!calendar) {
-    return { status: "invalid", errors: [{ field: "form", message: "Configurez d'abord le calendrier." }] };
+    return { status: "invalid", errors: [{ field: "form", message: "Ce calendrier n'existe plus. Rechargez la page." }] };
   }
 
   const holidays = readHolidays(formData);
@@ -134,21 +142,42 @@ export async function saveHolidays(
   if (errors.length > 0) return { status: "invalid", errors };
 
   await replaceHolidays(calendar.id, holidays);
-  revalidatePath("/admin", "layout");
+  revalidatePath("/", "layout");
   return { status: "saved", errors: [] };
 }
 
-// Section « Publication » : rend le calendrier visible du personnel, tel qu'il
-// est enregistré (configuration et jours retirés).
-export async function publish(): Promise<HolidaysFormState> {
+// Rend un calendrier visible du personnel, tel qu'il est enregistré
+// (configuration et jours retirés).
+export async function publish(input: { calendarId: string }): Promise<HolidaysFormState> {
   await requireAdmin();
 
-  const calendar = await getDefaultCalendar();
+  const calendar = await getCalendar(String(input?.calendarId ?? ""));
   if (!calendar) {
-    return { status: "invalid", errors: [{ field: "form", message: "Configurez d'abord le calendrier." }] };
+    return { status: "invalid", errors: [{ field: "form", message: "Ce calendrier n'existe plus. Rechargez la page." }] };
   }
 
   await publishCalendar(calendar.id);
   revalidatePath("/", "layout");
   return { status: "published", errors: [] };
+}
+
+// Supprime un calendrier créé par erreur. Refusé dès qu'un créneau y a été
+// signalé : on ne détruit pas ce que le personnel a saisi.
+export async function removeCalendar(input: { calendarId: string }): Promise<HolidaysFormState> {
+  await requireAdmin();
+
+  const calendar = await getCalendar(String(input?.calendarId ?? ""));
+  if (!calendar) {
+    return { status: "invalid", errors: [{ field: "form", message: "Ce calendrier n'existe plus. Rechargez la page." }] };
+  }
+  if ((await countExceptions(calendar.id)) > 0) {
+    return {
+      status: "invalid",
+      errors: [{ field: "form", message: "Des créneaux ont été signalés dans ce calendrier : il ne peut plus être supprimé." }],
+    };
+  }
+
+  await deleteCalendar(calendar.id);
+  revalidatePath("/", "layout");
+  return { status: "saved", errors: [] };
 }

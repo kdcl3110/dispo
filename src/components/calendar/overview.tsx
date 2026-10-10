@@ -32,6 +32,7 @@ import { describePeriod, HolidaysForm } from "./holidays-form";
 import { MonthOverview } from "./month-overview";
 
 export interface OverviewCalendar extends CalendarConfig {
+  id: string;
   publishedAt: string | null;
   holidays: { date: ISODate; label: string | null }[];
 }
@@ -65,6 +66,7 @@ function describeDays(weekDays: string[]) {
 
 export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewCalendar | null; exceptions: number }) {
   const [editing, setEditing] = useState<"config" | "holidays" | null>(null);
+  const router = useRouter();
   const locked = exceptions > 0;
 
   return (
@@ -98,7 +100,10 @@ export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewC
           initial={calendar}
           holidays={calendar?.holidays ?? []}
           locked={locked}
-          onSaved={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            router.refresh();
+          }}
         />
       </Drawer>
 
@@ -115,6 +120,7 @@ export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewC
             nouveau pour la rendre.
           </p>
           <HolidaysForm
+            calendarId={calendar.id}
             calendar={{ startDate: calendar.startDate, endDate: calendar.endDate, weekDays: calendar.weekDays }}
             initialHolidays={calendar.holidays}
             slotsPerDay={generateSlots(calendar).length}
@@ -162,7 +168,7 @@ function Summary({
 
   function confirmPublish() {
     startTransition(async () => {
-      const result = await publish();
+      const result = await publish({ calendarId: calendar.id });
       if (result.status !== "published") {
         message.error(result.errors[0]?.message ?? "La publication a échoué.");
         return;

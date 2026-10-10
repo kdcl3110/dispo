@@ -8,7 +8,7 @@
 
 import "server-only";
 
-import { getDefaultCalendar } from "@/lib/calendar";
+import { getCalendar } from "@/lib/calendar";
 import { prisma } from "@/lib/prisma";
 import { generateSlots, toISODate } from "@/lib/slots";
 
@@ -38,9 +38,9 @@ function brusselsTimestamp(date: Date) {
 
 export type ExportDocument = NonNullable<Awaited<ReturnType<typeof buildExport>>>;
 
-// null s'il n'y a pas encore de calendrier : rien à exporter.
-export async function buildExport(exportedBy: string, now = new Date()) {
-  const calendar = await getDefaultCalendar();
+// null si le calendrier n'existe pas : rien à exporter.
+export async function buildExport(calendarId: string, exportedBy: string, now = new Date()) {
+  const calendar = await getCalendar(calendarId);
   if (!calendar) return null;
 
   const slots = generateSlots(calendar);

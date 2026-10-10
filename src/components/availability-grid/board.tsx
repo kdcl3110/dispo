@@ -96,7 +96,7 @@ export function AvailabilityBoard({
       return;
     }
     startTransition(async () => {
-      const result = await saveSlot({ resourceId, date, start, status: mode, comment: quickComment });
+      const result = await saveSlot({ calendarId: calendar.id, resourceId, date, start, status: mode, comment: quickComment });
       if (result.ok) applySaved(result.slots, true);
       else message.error(result.errors[0]?.message ?? "L'enregistrement a échoué.");
     });
@@ -107,7 +107,9 @@ export function AvailabilityBoard({
     setBulk(kind);
     startTransition(async () => {
       const result: SaveSlotResult =
-        kind === "copy" ? await copyWeekToAll({ resourceId, weekMonday: modelWeek }) : await resetAll({ resourceId });
+        kind === "copy"
+          ? await copyWeekToAll({ calendarId: calendar.id, resourceId, weekMonday: modelWeek })
+          : await resetAll({ calendarId: calendar.id, resourceId });
       setBulk(null);
       if (!result.ok) {
         message.error(result.errors[0]?.message ?? "L'opération a échoué.");
@@ -234,6 +236,7 @@ export function AvailabilityBoard({
       {open && (
         <SlotDialog
           key={slotKey(open.date, open.start)}
+          calendarId={calendar.id}
           resourceId={resourceId}
           slot={open}
           onSaved={applySaved}

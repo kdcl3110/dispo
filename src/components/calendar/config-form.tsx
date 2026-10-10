@@ -96,8 +96,9 @@ function toConfig(values: Partial<FormValues>): CalendarConfig {
 }
 
 // Même format que le <form> d'origine : l'action serveur n'a pas changé.
-function toFormData(config: CalendarConfig) {
+function toFormData(config: CalendarConfig, calendarId?: string) {
   const data = new FormData();
+  if (calendarId) data.set("calendarId", calendarId);
   data.set("name", config.name);
   data.set("startDate", config.startDate);
   data.set("endDate", config.endDate);
@@ -131,10 +132,10 @@ export function CalendarConfigForm({
   locked,
   onSaved,
 }: {
-  initial: CalendarConfig | null;
+  initial: (CalendarConfig & { id?: string }) | null;
   holidays: { date: string }[];
   locked: boolean;
-  onSaved?: () => void;
+  onSaved?: (calendarId: string) => void;
 }) {
   const [form] = Form.useForm<FormValues>();
   const { message } = App.useApp();
@@ -173,7 +174,7 @@ export function CalendarConfigForm({
       return;
     }
     startTransition(async () => {
-      const result = await saveCalendar({ status: "idle", errors: [] }, toFormData(next));
+      const result = await saveCalendar({ status: "idle", errors: [] }, toFormData(next, initial?.id));
       if (result.status === "invalid") {
         setChecking(true);
         showErrors(result.errors);
@@ -181,7 +182,7 @@ export function CalendarConfigForm({
         setChecking(false);
         showErrors([]);
         message.success("Configuration enregistrée.");
-        onSaved?.();
+        if (result.calendarId) onSaved?.(result.calendarId);
       }
     });
   }

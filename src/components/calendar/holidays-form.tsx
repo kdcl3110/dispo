@@ -45,12 +45,14 @@ export function describePeriod(from: ISODate, to: ISODate, count: number) {
 type Period = { startDate: ISODate; endDate: ISODate; weekDays: string[] };
 
 export function HolidaysForm({
+  calendarId,
   calendar,
   initialHolidays,
   slotsPerDay,
   locked,
   onSaved,
 }: {
+  calendarId: string;
   calendar: Period;
   initialHolidays: { date: ISODate; label: string | null }[];
   slotsPerDay: number;
@@ -99,6 +101,7 @@ export function HolidaysForm({
 
   function save() {
     const data = new FormData();
+    data.set("calendarId", calendarId);
     data.set("holidays", JSON.stringify(entries));
     startTransition(async () => {
       const result = await saveHolidays({ status: "idle", errors: [] }, data);

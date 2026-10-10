@@ -18,6 +18,7 @@ import { calendarWeekGrid, generateSlots, slotKey, type BreakRange, type ISODate
 export type SlotStatus = "AVAILABLE" | "IF_NEEDED" | "UNAVAILABLE";
 
 export interface GridCalendar {
+  id: string;
   startDate: ISODate;
   endDate: ISODate;
   weekDays: string[];

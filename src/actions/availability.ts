@@ -7,7 +7,7 @@
 import { revalidatePath } from "next/cache";
 
 import { addExceptions, clearExceptions, getExceptions, saveSlots } from "@/lib/availability";
-import { getDefaultCalendar } from "@/lib/calendar";
+import { getCalendar } from "@/lib/calendar";
 import { getResource } from "@/lib/resource";
 import { requireSession } from "@/lib/session";
 import { calendarDays, calendarWeekGrid, slotKey, weekDayOf, type ISODate, type Time } from "@/lib/slots";
@@ -15,6 +15,7 @@ import type { ValidationError } from "@/lib/validation/calendar";
 import { checkAccess, validateException, type AvailabilityStatus } from "@/lib/validation/availability";
 
 export interface SaveSlotInput {
+  calendarId: string;
   resourceId: string;
   date: ISODate;
   start: Time;
@@ -48,7 +49,10 @@ export async function saveSlot(input: SaveSlotInput): Promise<SaveSlotResult> {
     comment: String(input?.comment ?? ""),
   };
 
-  const [resource, calendar] = await Promise.all([getResource(String(input?.resourceId ?? "")), getDefaultCalendar()]);
+  const [resource, calendar] = await Promise.all([
+    getResource(String(input?.resourceId ?? "")),
+    getCalendar(String(input?.calendarId ?? "")),
+  ]);
   if (!resource || !calendar) {
     return { ok: false, errors: [{ field: "form", message: "Ce créneau n'existe plus. Rechargez la page." }] };
   }
@@ -73,17 +77,20 @@ export async function saveSlot(input: SaveSlotInput): Promise<SaveSlotResult> {
     updatedById: user.id,
   });
 
-  revalidatePath("/availability");
-  revalidatePath("/admin/availability");
+  revalidatePath("/availability", "layout");
+  revalidatePath("/admin/availability", "layout");
 
   const comment = status === "AVAILABLE" ? "" : values.comment.trim();
   return { ok: true, slots: dates.map((date) => ({ date, start: values.start, status, comment })) };
 }
 
 // Charge la ressource et le calendrier, puis vérifie les droits (règles 5 et 6).
-async function loadForWrite(resourceId: unknown) {
+async function loadForWrite(calendarId: unknown, resourceId: unknown) {
   const user = await requireSession();
-  const [resource, calendar] = await Promise.all([getResource(String(resourceId ?? "")), getDefaultCalendar()]);
+  const [resource, calendar] = await Promise.all([
+    getResource(String(resourceId ?? "")),
+    getCalendar(String(calendarId ?? "")),
+  ]);
   if (!resource || !calendar) {
     return { error: { field: "form", message: "Cette grille n'existe plus. Rechargez la page." } as ValidationError };
   }
@@ -96,8 +103,12 @@ async function loadForWrite(resourceId: unknown) {
 // signalés de la semaine modèle sur les autres semaines, au même jour et à la
 // même heure. On COMPLÈTE seulement : un créneau déjà signalé ailleurs est
 // gardé tel quel. Les jours retirés ne reçoivent rien.
-export async function copyWeekToAll(input: { resourceId: string; weekMonday: ISODate }): Promise<SaveSlotResult> {
-  const loaded = await loadForWrite(input?.resourceId);
+export async function copyWeekToAll(input: {
+  calendarId: string;
+  resourceId: string;
+  weekMonday: ISODate;
+}): Promise<SaveSlotResult> {
+  const loaded = await loadForWrite(input?.calendarId, input?.resourceId);
   if ("error" in loaded) return { ok: false, errors: [loaded.error!] };
   const { user, resource, calendar } = loaded;
 
@@ -122,22 +133,22 @@ export async function copyWeekToAll(input: { resourceId: string; weekMonday: ISO
 
   await addExceptions({ calendarId: calendar.id, resourceId: resource.id, updatedById: user.id, rows });
 
-  revalidatePath("/availability");
-  revalidatePath("/admin/availability");
+  revalidatePath("/availability", "layout");
+  revalidatePath("/admin/availability", "layout");
   return { ok: true, slots: rows };
 }
 
 // « Tout remettre à disponible » : efface tous les créneaux signalés.
-export async function resetAll(input: { resourceId: string }): Promise<SaveSlotResult> {
-  const loaded = await loadForWrite(input?.resourceId);
+export async function resetAll(input: { calendarId: string; resourceId: string }): Promise<SaveSlotResult> {
+  const loaded = await loadForWrite(input?.calendarId, input?.resourceId);
   if ("error" in loaded) return { ok: false, errors: [loaded.error!] };
   const { resource, calendar } = loaded;
 
   const existing = await getExceptions(calendar.id, resource.id);
   await clearExceptions(calendar.id, resource.id);
 
-  revalidatePath("/availability");
-  revalidatePath("/admin/availability");
+  revalidatePath("/availability", "layout");
+  revalidatePath("/admin/availability", "layout");
   return {
     ok: true,
     slots: existing.map((e) => ({ date: e.date, start: e.start, status: "AVAILABLE" as const, comment: "" })),

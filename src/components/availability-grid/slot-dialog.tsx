@@ -35,11 +35,13 @@ const PLURAL_DAYS: Record<string, string> = {
 const title = new Intl.DateTimeFormat("fr-BE", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
 export function SlotDialog({
+  calendarId,
   resourceId,
   slot,
   onSaved,
   onClose,
 }: {
+  calendarId: string;
   resourceId: string;
   slot: { date: ISODate; start: Time; end: Time; status: SlotStatus; comment: string };
   onSaved: (slots: SlotState[]) => void;
@@ -64,7 +66,7 @@ export function SlotDialog({
       return;
     }
     startTransition(async () => {
-      const result = await saveSlot({ resourceId, date: slot.date, start: slot.start, status, comment, repeatWeekly: repeat });
+      const result = await saveSlot({ calendarId, resourceId, date: slot.date, start: slot.start, status, comment, repeatWeekly: repeat });
       if (result.ok) {
         onSaved(result.slots);
         onClose();

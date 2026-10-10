@@ -5,6 +5,7 @@
 import { Button } from "antd";
 import Link from "next/link";
 
+import { getDefaultCalendar } from "@/lib/calendar";
 import { buildExport, exportFileName, type ExportDocument } from "@/lib/export";
 import { requireAdmin } from "@/lib/session";
 import { calendarDays } from "@/lib/slots";
@@ -36,7 +37,9 @@ function Highlighted({ json }: { json: string }) {
 
 export default async function ExportPage() {
   const admin = await requireAdmin();
-  const document = await buildExport(admin.name ?? "admin");
+  // PROVISOIRE : le calendrier par défaut, jusqu'au choix du calendrier (étape 5).
+  const calendarId = (await getDefaultCalendar())?.id;
+  const document = calendarId ? await buildExport(calendarId, admin.name ?? "admin") : null;
 
   if (!document) {
     return (
@@ -91,7 +94,7 @@ export default async function ExportPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Button type="primary" size="large" block href="/admin/export/download">
+            <Button type="primary" size="large" block href={`/admin/export/download?calendar=${calendarId}`}>
               Télécharger le JSON
             </Button>
             <span className="text-center text-[13px] text-graphite">{exportFileName(document)}</span>

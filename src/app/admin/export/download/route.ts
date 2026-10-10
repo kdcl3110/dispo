@@ -4,12 +4,13 @@
 import { buildExport, exportFileName } from "@/lib/export";
 import { requireAdmin } from "@/lib/session";
 
-export async function GET() {
+export async function GET(request: Request) {
   const admin = await requireAdmin();
 
-  const document = await buildExport(admin.name ?? "admin");
+  const calendarId = new URL(request.url).searchParams.get("calendar") ?? "";
+  const document = await buildExport(calendarId, admin.name ?? "admin");
   if (!document) {
-    return new Response("Aucun calendrier à exporter.", { status: 404 });
+    return new Response("Ce calendrier n'existe pas.", { status: 404 });
   }
 
   return new Response(JSON.stringify(document, null, 2), {
