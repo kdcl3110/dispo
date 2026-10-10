@@ -4,11 +4,17 @@
 // et Menu d'Ant Design. Composant client : il lit l'URL courante pour marquer
 // la page active.
 
-import { Button, Layout, Menu, type MenuProps } from "antd";
+import {
+  CalendarOutlined,
+  EditOutlined,
+  ExportOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
+import { Layout, Menu, type MenuProps } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { logout } from "@/actions/auth";
+import { UserMenu } from "@/components/ui/user-menu";
 
 // Regroupée par phase de travail : préparer le calendrier, puis les ressources.
 // Les libellés sont des liens : navigation native, préchargement par Next, et
@@ -18,17 +24,16 @@ const items: MenuProps["items"] = [
     type: "group",
     label: "Calendrier",
     children: [
-      { key: "/admin/calendar", label: <Link href="/admin/calendar">Configuration</Link> },
-      { key: "/admin/calendar/holidays", label: <Link href="/admin/calendar/holidays">Jours fériés et publication</Link> },
+      { key: "/admin/calendar", icon: <CalendarOutlined />, label: <Link href="/admin/calendar">Préparer le calendrier</Link> },
     ],
   },
   {
     type: "group",
     label: "Ressources",
     children: [
-      { key: "/admin/resources", label: <Link href="/admin/resources">Liste des ressources</Link> },
-      { key: "/admin/availability", label: <Link href="/admin/availability">Saisie des disponibilités</Link> },
-      { key: "/admin/export", label: <Link href="/admin/export">Export JSON</Link> },
+      { key: "/admin/resources", icon: <TeamOutlined />, label: <Link href="/admin/resources">Liste des ressources</Link> },
+      { key: "/admin/availability", icon: <EditOutlined />, label: <Link href="/admin/availability">Saisie des disponibilités</Link> },
+      { key: "/admin/export", icon: <ExportOutlined />, label: <Link href="/admin/export">Export JSON</Link> },
     ],
   },
 ];
@@ -38,7 +43,7 @@ export function AdminSidebar({ username }: { username: string }) {
 
   return (
     // Hauteur de la fenêtre, collée en haut : la barre ne s'étire pas avec le
-    // contenu (une grille de 15 semaines est très haute), et « Se déconnecter »
+    // contenu (une grille de 15 semaines est très haute), et le menu du compte
     // reste visible en bas de l'écran pendant qu'on fait défiler la page.
     <Layout.Sider
       width={232}
@@ -59,13 +64,14 @@ export function AdminSidebar({ username }: { username: string }) {
           </nav>
         </div>
 
-        <div className="mx-7 flex flex-col items-start gap-0.5 border-t border-rule pt-4">
-          <span className="text-sm font-medium">{username}</span>
-          <form action={logout}>
-            <Button type="link" htmlType="submit" size="small" className="h-auto! p-0! text-[13px]!">
-              Se déconnecter
-            </Button>
-          </form>
+        {/* Nom de l'administrateur : un clic ouvre son menu, vers le haut. */}
+        <div className="mx-3 border-t border-rule pt-3">
+          <UserMenu
+            name={username}
+            caption="Administrateur"
+            placement="topLeft"
+            reconnectHint="Pour revenir, il faudra saisir à nouveau vos identifiants administrateur."
+          />
         </div>
       </div>
     </Layout.Sider>

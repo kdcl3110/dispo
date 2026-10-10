@@ -1,10 +1,10 @@
 // Cadre de la zone USER (personnel connecté via Google) : vérification du
 // rôle + en-tête (maquette « Mes disponibilités »).
 
-import { Button } from "antd";
-import Link from "next/link";
+import { Button, Divider, Tooltip } from "antd";
 
-import { logout } from "@/actions/auth";
+import { CalendarOutlined, LockOutlined } from "@/components/ui/icons";
+import { UserMenu } from "@/components/ui/user-menu";
 import { getCalendar } from "@/lib/calendar";
 import { requireUser } from "@/lib/session";
 
@@ -14,25 +14,35 @@ export default async function AvailabilityLayout({ children }: LayoutProps<"/ava
 
   return (
     <div className="flex flex-1 flex-col">
-      {/* Collé en haut : le nom et « Se déconnecter » restent visibles pendant
+      {/* Collé en haut : l'identité et les actions restent visibles pendant
           qu'on fait défiler la grille. Fond blanc et z-index pour qu'elle passe dessous. */}
-      <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-x-7 gap-y-3 border-b border-rule bg-paper px-6 py-3 md:px-10">
-        <div className="flex items-baseline gap-4">
+      <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule bg-paper px-6 py-3 md:px-10">
+        <div className="flex items-center gap-4">
           <span className="font-condensed text-2xl leading-none font-semibold tracking-[-0.01em]">dispo</span>
-          {calendar?.publishedAt && <span className="text-sm text-graphite">{calendar.name}</span>}
+          {calendar?.publishedAt && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-desk px-3 py-1 text-[13px] text-graphite">
+              <CalendarOutlined aria-hidden="true" />
+              {calendar.name}
+            </span>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
-          <Link href="/login/admin" className="text-sm">
-            Administration
-          </Link>
-          <div className="flex flex-col items-end">
-            <span className="text-sm leading-snug font-semibold">{user.name}</span>
-            <span className="text-[13px] leading-snug text-graphite">{user.email}</span>
-          </div>
-          <form action={logout}>
-            <Button htmlType="submit">Se déconnecter</Button>
-          </form>
+        <div className="flex flex-wrap items-center gap-y-2">
+          {/* Changement d'espace : un vrai bouton, séparé du reste, avec un cadenas. */}
+          <Tooltip title="Configurer le calendrier et gérer les ressources. Identifiants administrateur requis.">
+            <Button href="/login/admin" icon={<LockOutlined />}>
+              Mode administrateur
+            </Button>
+          </Tooltip>
+
+          <Divider orientation="vertical" className="mx-5! h-8! hidden sm:block" />
+
+          {/* Nom de l'utilisateur : un clic ouvre son menu (adresse, déconnexion). */}
+          <UserMenu
+            name={user.name ?? "Mon compte"}
+            caption={user.email}
+            reconnectHint="Pour revenir, il faudra vous reconnecter avec votre compte Google."
+          />
         </div>
       </header>
 

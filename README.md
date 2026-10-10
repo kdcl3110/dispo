@@ -41,8 +41,7 @@ src/
     admin/                 Zone ADMIN
       layout.tsx           Vérifie le rôle, affiche la barre latérale
       page.tsx             Redirige vers /admin/calendar
-      calendar/            Configuration (dates, jours, horaires, pauses)
-        holidays/          Jours fériés et publication
+      calendar/            Calendrier : configuration, jours fériés, publication (une page)
       resources/           Ressources : liste, ajout, import Excel (même page)
       availability/        Grille d'une ressource (saisie admin)
       export/              Export JSON : résumé et aperçu
@@ -71,9 +70,9 @@ src/
       resource.ts          Local ou équipement (type, nom)
 
   components/              UI réutilisable
-    ui/                    Thème Ant Design et fournisseurs (layout racine)
+    ui/                    Thème Ant Design, fournisseurs, en-tête d'écran, icônes, menu utilisateur
     admin/                 Cadre de la zone admin, choix de la ressource
-    calendar/              Étapes, formulaires de configuration et de jours fériés
+    calendar/              Écran Calendrier : résumé, panneaux de modification, aperçu des mois
     resource/              Tableau des ressources, fenêtres d'ajout et d'import
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN

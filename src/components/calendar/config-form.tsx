@@ -10,7 +10,7 @@
 
 import { Alert, App, Button, Checkbox, DatePicker, Form, Input, Select, TimePicker } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useState, useTransition } from "react";
 
 import { saveCalendar } from "@/actions/calendar";
 import type { CalendarConfig } from "@/lib/calendar";
@@ -96,7 +96,7 @@ function toConfig(values: Partial<FormValues>): CalendarConfig {
 }
 
 // Même format que le <form> d'origine : l'action serveur n'a pas changé.
-function toFormData(config: CalendarConfig, intent: string) {
+function toFormData(config: CalendarConfig) {
   const data = new FormData();
   data.set("name", config.name);
   data.set("startDate", config.startDate);
@@ -110,7 +110,6 @@ function toFormData(config: CalendarConfig, intent: string) {
     data.set(`breaks.${i}.start`, b.start);
     data.set(`breaks.${i}.end`, b.end);
   });
-  data.set("intent", intent);
   return data;
 }
 
@@ -130,12 +129,12 @@ export function CalendarConfigForm({
   initial,
   holidays,
   locked,
-  status,
+  onSaved,
 }: {
   initial: CalendarConfig | null;
   holidays: { date: string }[];
   locked: boolean;
-  status: ReactNode;
+  onSaved?: () => void;
 }) {
   const [form] = Form.useForm<FormValues>();
   const { message } = App.useApp();
@@ -145,10 +144,7 @@ export function CalendarConfigForm({
 
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [checking, setChecking] = useState(false); // vrai après un premier envoi refusé
-  const [, startTransition] = useTransition();
-  // Bouton cliqué : la ref est lue à l'envoi, l'état sert à l'affichage du chargement.
-  const intent = useRef<"save" | "continue">("save");
-  const [sending, setSending] = useState<"save" | "continue" | null>(null);
+  const [pending, startTransition] = useTransition();
 
   // Affiche les erreurs sous leurs champs, et efface celles qui sont corrigées.
   function showErrors(errors: ValidationError[]) {
@@ -176,10 +172,8 @@ export function CalendarConfigForm({
       showErrors(local);
       return;
     }
-    setSending(intent.current);
     startTransition(async () => {
-      const result = await saveCalendar({ status: "idle", errors: [] }, toFormData(next, intent.current));
-      setSending(null);
+      const result = await saveCalendar({ status: "idle", errors: [] }, toFormData(next));
       if (result.status === "invalid") {
         setChecking(true);
         showErrors(result.errors);
@@ -187,6 +181,7 @@ export function CalendarConfigForm({
         setChecking(false);
         showErrors([]);
         message.success("Configuration enregistrée.");
+        onSaved?.();
       }
     });
   }
@@ -307,29 +302,20 @@ export function CalendarConfigForm({
           </Form.List>
         </Form.Item>
 
-        <div className="mt-auto flex flex-wrap justify-end gap-3 border-t border-rule pt-5">
+        <div className="mt-auto flex flex-wrap items-center justify-end gap-3 border-t border-rule pt-5">
           {locked ? (
-            <Button type="primary" size="large" href="/admin/calendar/holidays" disabled={false}>
-              Aller aux jours fériés
-            </Button>
+            <Alert type="info" showIcon title="Des créneaux ont déjà été signalés : la configuration ne peut plus changer." className="w-full" />
           ) : (
-            <>
-              <Button size="large" htmlType="submit" loading={sending === "save"} onClick={() => (intent.current = "save")}>
-                Enregistrer le brouillon
-              </Button>
-              <Button type="primary" size="large" htmlType="submit" loading={sending === "continue"} onClick={() => (intent.current = "continue")}>
-                Enregistrer et continuer
-              </Button>
-            </>
+            <Button type="primary" size="large" htmlType="submit" loading={pending}>
+              Enregistrer la configuration
+            </Button>
           )}
         </div>
       </Form>
 
       <aside className="flex flex-col gap-5 lg:w-75 lg:shrink-0 lg:border-l lg:border-rule lg:pl-8">
-        {status}
-
         <div className="flex flex-col gap-2.5">
-          <h2 className="text-base font-semibold">Aperçu d&apos;une journée</h2>
+          <h3 className="text-base font-semibold">Aperçu d&apos;une journée</h3>
           {gridOk ? (
             <ul className="flex flex-col border-t border-seyes-strong">
               {preview.map((row) => (

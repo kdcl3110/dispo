@@ -3,26 +3,30 @@
 // dans le tableau, côté navigateur (quelques centaines de lignes au plus).
 
 import { ResourcesTable } from "@/components/resource/resources-table";
+import { DesktopOutlined, ExclamationCircleOutlined, HomeOutlined, TeamOutlined, UserOutlined } from "@/components/ui/icons";
+import { PageHeader } from "@/components/ui/page-header";
 import { countResourcesByType, listResources } from "@/lib/resource";
 import { requireAdmin } from "@/lib/session";
-
-const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
 export default async function ResourcesPage() {
   await requireAdmin();
 
   const [resources, totals] = await Promise.all([listResources(), countResourcesByType()]);
-  const total = totals.PERSON + totals.LOCAL + totals.EQUIPMENT;
+  const signaled = resources.reduce((n, r) => n + r.unavailable + r.ifNeeded, 0);
 
   return (
     <main className="flex flex-1 flex-col gap-6 px-6 py-8 md:px-10">
-      <div className="flex flex-col gap-1.5">
-        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">Ressources</h1>
-        <p className="max-w-[680px] text-[15px] leading-relaxed text-graphite">
-          {plural(total, "ressource", "ressources")} : {plural(totals.PERSON, "personne", "personnes")},{" "}
-          {plural(totals.LOCAL, "local", "locaux")} et {plural(totals.EQUIPMENT, "équipement", "équipements")}.
-        </p>
-      </div>
+      <PageHeader
+        icon={<TeamOutlined />}
+        title="Ressources"
+        description="Le personnel, les locaux et les équipements dont on suit les disponibilités."
+        figures={[
+          { icon: <UserOutlined />, value: totals.PERSON, label: totals.PERSON > 1 ? "personnes" : "personne" },
+          { icon: <HomeOutlined />, value: totals.LOCAL, label: totals.LOCAL > 1 ? "locaux" : "local" },
+          { icon: <DesktopOutlined />, value: totals.EQUIPMENT, label: totals.EQUIPMENT > 1 ? "équipements" : "équipement" },
+          { icon: <ExclamationCircleOutlined />, value: signaled, label: signaled > 1 ? "créneaux signalés" : "créneau signalé" },
+        ]}
+      />
 
       <ResourcesTable rows={resources} />
     </main>

@@ -64,8 +64,11 @@ export default async function ExportPage() {
   ];
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-6 py-8 md:px-10">
-      <div className="flex flex-col gap-1.5">
+    // Grand écran : la page tient exactement dans la fenêtre (h-screen) et seul
+    // l'aperçu défile. Sans ça, l'aperçu et la page défilaient l'un dans l'autre.
+    // Petit écran : la page défile normalement.
+    <main className="flex flex-1 flex-col gap-6 px-6 py-8 md:px-10 lg:h-screen lg:flex-none lg:overflow-hidden">
+      <div className="flex shrink-0 flex-col gap-1.5">
         <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.015em]">Export JSON</h1>
         <p className="max-w-[680px] text-[15px] leading-relaxed text-graphite">
           Un fichier avec la configuration du calendrier, la grille des créneaux, les jours retirés et tous les créneaux
@@ -73,8 +76,8 @@ export default async function ExportPage() {
         </p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-10 lg:flex-row">
-        <div className="flex flex-col gap-6 lg:w-80 lg:shrink-0">
+      <div className="flex flex-1 flex-col gap-10 lg:min-h-0 lg:flex-row">
+        <div className="flex flex-col gap-6 lg:w-80 lg:shrink-0 lg:overflow-y-auto">
           <div className="flex flex-col gap-3">
             <h2 className="text-base font-semibold">Contenu du fichier</h2>
             <dl className="flex flex-col border-t border-rule">
@@ -103,7 +106,7 @@ export default async function ExportPage() {
           </div>
         </div>
 
-        <section aria-labelledby="preview-title" className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-rule bg-[#f6f8fb]">
+        <section aria-labelledby="preview-title" className="flex min-h-[420px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-rule bg-[#f6f8fb] lg:min-h-0">
           <div className="flex h-13 shrink-0 items-center justify-between border-b border-rule bg-paper px-5">
             <h2 id="preview-title" className="text-sm font-semibold">
               Aperçu du fichier
@@ -112,7 +115,7 @@ export default async function ExportPage() {
               <span className="text-[13px] text-graphite">Limité aux 2 premières ressources</span>
             )}
           </div>
-          <pre className="m-0 max-h-[640px] flex-1 overflow-auto p-5 font-mono text-[12.5px] leading-relaxed text-graphite">
+          <pre className="m-0 min-h-0 flex-1 overflow-auto p-5 font-mono text-[12.5px] leading-relaxed text-graphite">
             <Highlighted json={preview} />
           </pre>
         </section>

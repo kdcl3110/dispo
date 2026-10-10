@@ -4,6 +4,7 @@
 // Design : recherche et filtre par type instantanés, tri par colonne, fenêtres
 // d'ajout, de modification et d'import Excel des locaux et équipements.
 
+import { DeleteOutlined, EditOutlined, FileExcelOutlined, PlusOutlined } from "@ant-design/icons";
 import { App, Button, Form, Input, Modal, Popconfirm, Segmented, Select, Table, type TableColumnsType } from "antd";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -97,7 +98,7 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
           </Link>
           {r.type !== "PERSON" && (
             <>
-              <Button size="small" onClick={() => setEditing({ id: r.id, type: r.type as EditableResourceType, name: r.name })}>
+              <Button size="small" icon={<EditOutlined />} onClick={() => setEditing({ id: r.id, type: r.type as EditableResourceType, name: r.name })}>
                 Modifier
               </Button>
               <DeleteButton row={r} />
@@ -123,8 +124,10 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
           <Segmented<TypeFilter> options={FILTERS} value={filter} onChange={setFilter} aria-label="Filtrer par type" />
         </div>
         <div className="flex flex-wrap gap-2.5">
-          <Button onClick={() => setImporting(true)}>Importer un fichier Excel</Button>
-          <Button type="primary" onClick={() => setEditing({ type: "LOCAL", name: "" })}>
+          <Button icon={<FileExcelOutlined />} onClick={() => setImporting(true)}>
+            Importer un fichier Excel
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing({ type: "LOCAL", name: "" })}>
             Ajouter une ressource
           </Button>
         </div>
@@ -186,7 +189,7 @@ function DeleteButton({ row }: { row: ResourceRow }) {
       cancelText="Annuler"
       onConfirm={confirm}
     >
-      <Button size="small" danger loading={pending}>
+      <Button size="small" danger icon={<DeleteOutlined />} loading={pending}>
         Supprimer
       </Button>
     </Popconfirm>
@@ -201,7 +204,7 @@ function EmptyState({ onImport }: { onImport: () => void }) {
         Les membres du personnel apparaissent ici à leur première connexion. Les locaux et les équipements s&apos;ajoutent
         un par un, ou depuis un fichier Excel.
       </p>
-      <Button type="primary" onClick={onImport} className="mt-2">
+      <Button type="primary" icon={<FileExcelOutlined />} onClick={onImport} className="mt-2">
         Importer un fichier Excel
       </Button>
     </div>

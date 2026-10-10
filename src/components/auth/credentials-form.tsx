@@ -7,6 +7,7 @@
 // forme (Form en mode « component={false} » : pas de second <form>, pas de
 // gestion d'état côté Ant).
 
+import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Alert, Button, Form, Input } from "antd";
 import { useActionState } from "react";
 
@@ -20,11 +21,11 @@ export function CredentialsForm() {
     <form action={formAction}>
       <Form layout="vertical" component={false} requiredMark={false}>
         <Form.Item label="Identifiant" htmlFor="username" validateStatus={status}>
-          <Input id="username" name="username" required autoComplete="username" size="large" />
+          <Input id="username" name="username" required autoComplete="username" size="large" prefix={<UserOutlined className="text-graphite" />} />
         </Form.Item>
 
         <Form.Item label="Mot de passe" htmlFor="password" validateStatus={status}>
-          <Input.Password id="password" name="password" required autoComplete="current-password" size="large" />
+          <Input.Password id="password" name="password" required autoComplete="current-password" size="large" prefix={<LockOutlined className="text-graphite" />} />
         </Form.Item>
 
         {error && <Alert type="error" showIcon title={error} className="mb-6" />}

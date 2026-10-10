@@ -1,6 +1,6 @@
 "use client";
 
-// Formulaire « Jours fériés et publication » (maquette « Admin — Jours fériés »).
+// Section « Jours fériés » de l'écran Calendrier (maquette « Admin — Jours fériés »).
 //
 // La liste des jours retirés vit côté client : on clique dans la grille, on
 // nomme les périodes, puis on enregistre le tout d'un coup. La grille reste
@@ -28,10 +28,13 @@ const utc = (date: ISODate) => new Date(`${date}T00:00:00Z`);
 const shortDate = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short", timeZone: "UTC" });
 const longDate = new Intl.DateTimeFormat("fr-BE", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 const dayMonth = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "long", timeZone: "UTC" });
-const fullDate = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "long", year: "numeric" });
+
+// Liste des jours retirés sous forme comparable (ordre indifférent).
+const signature = (list: { date: string; label: string }[]) =>
+  JSON.stringify([...list].sort((a, b) => a.date.localeCompare(b.date)).map((h) => [h.date, h.label.trim()]));
 
 // « Du 26 octobre au 6 novembre, 10 jours » ou « Mercredi 11 novembre »
-function describePeriod(from: ISODate, to: ISODate, count: number) {
+export function describePeriod(from: ISODate, to: ISODate, count: number) {
   if (from === to) {
     const text = longDate.format(utc(from));
     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -45,14 +48,14 @@ export function HolidaysForm({
   calendar,
   initialHolidays,
   slotsPerDay,
-  publishedAt,
   locked,
+  onSaved,
 }: {
   calendar: Period;
   initialHolidays: { date: ISODate; label: string | null }[];
   slotsPerDay: number;
-  publishedAt: string | null;
   locked: boolean;
+  onSaved?: () => void;
 }) {
   const { message } = App.useApp();
   // date → nom de la période ("" si sans nom)
@@ -61,8 +64,9 @@ export function HolidaysForm({
   );
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [adding, setAdding] = useState(false);
-  const [sending, setSending] = useState<"save" | "publish" | null>(null);
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
+  // Empreinte de la dernière liste enregistrée : sert à signaler un oubli.
+  const [saved, setSaved] = useState(() => signature(initialHolidays.map((h) => ({ date: h.date, label: h.label ?? "" }))));
 
   const entries = Object.entries(holidays).map(([date, label]) => ({ date, label }));
   const periods = holidayPeriods(calendar, entries);
@@ -70,6 +74,7 @@ export function HolidaysForm({
   const courseDays = calendarDays({ ...calendar, holidays: [] }).length;
   const retired = entries.length;
   const remaining = courseDays - periods.reduce((n, p) => n + p.dates.length, 0);
+  const dirty = signature(entries) !== saved;
 
   function toggle(date: ISODate) {
     setHolidays((current) => {
@@ -92,17 +97,17 @@ export function HolidaysForm({
     });
   }
 
-  function send(intent: "save" | "publish") {
+  function save() {
     const data = new FormData();
     data.set("holidays", JSON.stringify(entries));
-    data.set("intent", intent);
-    setSending(intent);
     startTransition(async () => {
       const result = await saveHolidays({ status: "idle", errors: [] }, data);
-      setSending(null);
       setErrors(result.errors);
-      if (result.status === "saved") message.success("Jours retirés enregistrés.");
-      if (result.status === "published") message.success("Calendrier publié. Le personnel peut maintenant signaler ses créneaux.");
+      if (result.status === "saved") {
+        setSaved(signature(entries));
+        message.success("Congés enregistrés.");
+        onSaved?.();
+      }
     });
   }
 
@@ -233,36 +238,14 @@ export function HolidaysForm({
 
           {locked ? (
             <Alert type="info" showIcon title="Des créneaux ont déjà été signalés : les jours retirés ne peuvent plus changer." />
-          ) : publishedAt ? (
-            <>
-              <p className="text-sm leading-relaxed text-graphite">
-                Publié le {fullDate.format(new Date(publishedAt))}. Le personnel voit les changements dès l&apos;enregistrement.
-              </p>
-              <Button type="primary" size="large" block loading={sending === "save"} onClick={() => send("save")}>
-                Enregistrer
-              </Button>
-            </>
           ) : (
             <>
-              <p className="text-sm leading-relaxed text-graphite">
-                Publier ouvre la saisie à tout le personnel. Ensuite, les jours retirés ne pourront plus changer dès qu&apos;un créneau sera signalé.
-              </p>
-              <div className="flex gap-2.5">
-                <Button size="large" loading={sending === "save"} onClick={() => send("save")} className="flex-1">
-                  Enregistrer
-                </Button>
-                <Popconfirm
-                  title="Publier le calendrier ?"
-                  description="Le personnel pourra signaler ses créneaux dès maintenant."
-                  okText="Publier"
-                  cancelText="Annuler"
-                  onConfirm={() => send("publish")}
-                >
-                  <Button type="primary" size="large" loading={sending === "publish"} className="flex-2">
-                    Publier le calendrier
-                  </Button>
-                </Popconfirm>
-              </div>
+              {dirty && (
+                <Alert type="warning" showIcon title="Modifications non enregistrées." description="La publication utilise les jours retirés enregistrés." />
+              )}
+              <Button type="primary" size="large" block loading={pending} disabled={!dirty} onClick={save}>
+                Enregistrer les jours retirés
+              </Button>
             </>
           )}
         </div>

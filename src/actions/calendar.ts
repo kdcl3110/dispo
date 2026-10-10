@@ -1,10 +1,9 @@
 "use server";
 
-// Server Actions des écrans « Configuration » et « Jours fériés et publication ».
+// Server Actions de l'écran « Calendrier » : configuration, jours retirés, publication.
 // Ordre immuable : droits → lecture du formulaire → validation → écriture.
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import {
   countExceptions,
@@ -86,9 +85,6 @@ export async function saveCalendar(
 
   await saveCalendarConfig(values);
   revalidatePath("/admin", "layout");
-
-  // Bouton « Enregistrer et continuer » : on enchaîne sur l'étape 2.
-  if (formData.get("intent") === "continue") redirect("/admin/calendar/holidays");
   return { status: "saved", errors: [], values };
 }
 
@@ -136,10 +132,21 @@ export async function saveHolidays(
   if (errors.length > 0) return { status: "invalid", errors };
 
   await replaceHolidays(calendar.id, holidays);
-
-  const publish = formData.get("intent") === "publish" && !calendar.publishedAt;
-  if (publish) await publishCalendar(calendar.id);
-
   revalidatePath("/admin", "layout");
-  return { status: publish ? "published" : "saved", errors: [] };
+  return { status: "saved", errors: [] };
+}
+
+// Section « Publication » : rend le calendrier visible du personnel, tel qu'il
+// est enregistré (configuration et jours retirés).
+export async function publish(): Promise<HolidaysFormState> {
+  await requireAdmin();
+
+  const calendar = await getCalendar();
+  if (!calendar) {
+    return { status: "invalid", errors: [{ field: "form", message: "Configurez d'abord le calendrier." }] };
+  }
+
+  await publishCalendar(calendar.id);
+  revalidatePath("/", "layout");
+  return { status: "published", errors: [] };
 }
