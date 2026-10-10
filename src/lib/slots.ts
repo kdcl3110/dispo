@@ -144,21 +144,25 @@ export function mondayOf(date: ISODate): ISODate {
 }
 
 // Semaines du calendrier, du lundi de la semaine de startDate jusqu'à celle de
-// endDate. Chaque semaine liste ses dates par jour de cours, ou null quand la
-// date tombe hors de la période (première et dernière semaines incomplètes).
+// endDate, en ne gardant que celles qui ont au moins un jour de cours. Chaque
+// semaine liste ses dates par jour de cours, ou null quand la date tombe hors
+// de la période (première et dernière semaines incomplètes). C'est aussi le
+// nombre de semaines à afficher ; la limite des 15 semaines, elle, se compte
+// en semaines calendaires (calendarWeeks, src/lib/validation/calendar.ts).
 export function calendarWeekGrid({ startDate, endDate, weekDays }: PeriodConfig) {
   const order: WeekDay[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
   const days = order.filter((day) => weekDays.includes(day));
   const weeks: { monday: ISODate; dates: (ISODate | null)[] }[] = [];
 
   for (let monday = mondayOf(startDate); monday <= endDate; monday = addDays(monday, 7)) {
-    weeks.push({
-      monday,
-      dates: days.map((day) => {
-        const date = addDays(monday, order.indexOf(day));
-        return date >= startDate && date <= endDate ? date : null;
-      }),
+    const dates = days.map((day) => {
+      const date = addDays(monday, order.indexOf(day));
+      return date >= startDate && date <= endDate ? date : null;
     });
+    // Une semaine sans aucun jour de cours dans la période (calendrier qui
+    // commence un dimanche, ou finit un lundi avec cours du mardi au vendredi)
+    // ne donnerait qu'une colonne vide : on ne la garde pas.
+    if (dates.some((date) => date !== null)) weeks.push({ monday, dates });
   }
   return { days, weeks };
 }

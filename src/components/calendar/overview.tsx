@@ -21,8 +21,8 @@ import { useState, useTransition } from "react";
 
 import { publish } from "@/actions/calendar";
 import type { CalendarConfig } from "@/lib/calendar";
-import { calendarDays, generateSlots, holidayPeriods, type ISODate } from "@/lib/slots";
-import { calendarWeeks, formatDuration } from "@/lib/validation/calendar";
+import { calendarDays, calendarWeekGrid, generateSlots, holidayPeriods, type ISODate } from "@/lib/slots";
+import { formatDuration } from "@/lib/validation/calendar";
 
 import { CalendarConfigForm } from "./config-form";
 import { describePeriod, HolidaysForm } from "./holidays-form";
@@ -131,7 +131,8 @@ function Summary({
   const slots = generateSlots(calendar);
   const holidayDates = calendar.holidays.map((h) => h.date);
   const days = calendarDays({ ...calendar, holidays: holidayDates }).length;
-  const weeks = calendarWeeks(calendar.startDate, calendar.endDate);
+  // Semaines affichées dans la grille (sans semaine vide en début ou fin).
+  const weeks = calendarWeekGrid({ startDate: calendar.startDate, endDate: calendar.endDate, weekDays: calendar.weekDays }).weeks.length;
   const periods = holidayPeriods(
     { startDate: calendar.startDate, endDate: calendar.endDate, weekDays: calendar.weekDays },
     calendar.holidays,

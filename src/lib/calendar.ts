@@ -40,6 +40,7 @@ export interface CalendarRow {
   name: string;
   startDate: ISODate;
   endDate: ISODate;
+  weekDays: string[];
   publishedAt: Date | null;
   status: CalendarStatus;
   exceptions: number; // créneaux signalés
@@ -102,6 +103,7 @@ export async function listCalendars({ publishedOnly = false } = {}): Promise<Cal
       name: c.name,
       startDate: toISODate(c.startDate),
       endDate: row.endDate,
+      weekDays: c.weekDays,
       publishedAt: c.publishedAt,
       status: statusOf(row),
       exceptions: c._count.availabilities,

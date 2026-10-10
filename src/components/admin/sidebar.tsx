@@ -49,14 +49,13 @@ export function AdminSidebar({ username }: { username: string }) {
   );
 
   return (
-    // Hauteur de la fenêtre, collée en haut : la barre ne s'étire pas avec le
-    // contenu (une grille de 15 semaines est très haute), et le menu du compte
-    // reste visible en bas de l'écran pendant qu'on fait défiler la page.
+    // Hauteur de l'écran (le cadre admin ne défile jamais) : le menu du compte
+    // reste toujours visible en bas. Si l'écran est très bas, la barre défile seule.
     <Layout.Sider
       width={232}
       breakpoint="md"
       collapsedWidth={0}
-      style={{ position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", overflowY: "auto" }}
+      style={{ height: "100%", overflowY: "auto" }}
       className="border-r border-rule"
     >
       <div className="flex h-full flex-col justify-between gap-8 py-7">

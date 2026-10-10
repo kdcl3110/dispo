@@ -13,7 +13,7 @@ import { countExceptionsByCalendar } from "@/lib/availability";
 import { listCalendars } from "@/lib/calendar";
 import { getPersonResource } from "@/lib/resource";
 import { requireUser } from "@/lib/session";
-import { calendarWeeks } from "@/lib/validation/calendar";
+import { calendarWeekGrid } from "@/lib/slots";
 
 const shortDate = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const format = (date: string) => shortDate.format(new Date(`${date}T00:00:00Z`));
@@ -48,7 +48,8 @@ export default async function MyCalendarsPage() {
       <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {calendars.map((c) => {
           const n = mine[c.id] ?? 0;
-          const weeks = calendarWeeks(c.startDate, c.endDate);
+          // Semaines affichées dans la grille (sans semaine vide en début ou fin).
+          const weeks = calendarWeekGrid({ startDate: c.startDate, endDate: c.endDate, weekDays: c.weekDays }).weeks.length;
           const finished = c.status === "finished";
           return (
             <li key={c.id}>

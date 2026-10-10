@@ -12,9 +12,12 @@ import { AdminSidebar } from "./sidebar";
 
 export function AdminShell({ username, children }: { username: string; children: React.ReactNode }) {
   return (
-    <Layout hasSider className="flex-1">
+    // Hauteur de l'écran : la page entière ne défile jamais. La barre latérale
+    // reste en place ; seule la zone de contenu défile quand une page est longue
+    // (une grille, elle, défile dans son cadre).
+    <Layout hasSider className="h-dvh overflow-hidden">
       <AdminSidebar username={username} />
-      <Layout.Content className="flex min-w-0 flex-col">{children}</Layout.Content>
+      <Layout.Content className="flex min-h-0 min-w-0 flex-col overflow-y-auto">{children}</Layout.Content>
     </Layout>
   );
 }

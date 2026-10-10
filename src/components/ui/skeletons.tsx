@@ -19,7 +19,7 @@ function Bone({ width, height = 16, round = false }: { width: number | string; h
 // Zone annoncée aux lecteurs d'écran pendant le chargement.
 export function LoadingRegion({ children, label = "Chargement…" }: { children: React.ReactNode; label?: string }) {
   return (
-    <main aria-busy="true" aria-label={label} className="flex flex-1 flex-col gap-5 px-6 py-5 md:px-10">
+    <main aria-busy="true" aria-label={label} className="flex min-h-0 flex-1 flex-col gap-5 px-6 py-5 md:px-10">
       <span className="sr-only" role="status">
         {label}
       </span>

@@ -12,10 +12,11 @@ export default async function AvailabilityLayout({ children }: LayoutProps<"/ava
   const user = await requireUser();
 
   return (
-    <div className="flex flex-1 flex-col">
-      {/* Collé en haut : l'identité et les actions restent visibles pendant
-          qu'on fait défiler la grille. Fond blanc et z-index pour qu'elle passe dessous. */}
-      <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule bg-paper px-6 py-3 md:px-10">
+    // La zone occupe exactement la hauteur de l'écran : la page entière ne défile
+    // jamais. L'en-tête reste en haut, et seule la zone de contenu en dessous
+    // défile quand une page est longue (une grille, elle, défile dans son cadre).
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule bg-paper px-6 py-3 md:px-10">
         <div className="flex items-center gap-4">
           <Link href="/availability" className="font-condensed text-2xl leading-none font-semibold tracking-[-0.01em] text-ink no-underline hover:text-pen">
             dispo
@@ -41,7 +42,7 @@ export default async function AvailabilityLayout({ children }: LayoutProps<"/ava
         </div>
       </header>
 
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
     </div>
   );
 }

@@ -46,9 +46,9 @@ export default async function CalendarGridPage({ params }: PageProps<"/availabil
   const days = calendarDays({ ...calendar, holidays: calendar.holidays.map((h) => h.date) });
 
   return (
-    // Grand écran : la page tient dans la fenêtre (sous l'en-tête de 4 rem) et
-    // seule la grille défile. Petit écran : la page défile normalement.
-    <main className="flex flex-1 flex-col gap-3 px-6 py-4 md:px-10 lg:h-[calc(100dvh-4rem)] lg:flex-none lg:overflow-hidden">
+    // La page prend la hauteur que lui laisse l'en-tête, sans la dépasser :
+    // seule la grille défile, dans son cadre.
+    <main className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4 md:px-10">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         {/* Retour à la liste seulement s'il y en a une (plusieurs calendriers publiés). */}
         {published.length > 1 && (

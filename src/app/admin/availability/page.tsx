@@ -48,8 +48,9 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
   const days = calendarDays({ ...calendar, holidays: calendar.holidays.map((h) => h.date) });
 
   return (
-    // Grand écran : la page tient dans la fenêtre et seule la grille défile.
-    <main className="flex flex-1 flex-col gap-3 px-6 py-4 md:px-10 lg:h-dvh lg:flex-none lg:overflow-hidden">
+    // La page prend toute la hauteur de la zone de contenu, sans la dépasser :
+    // seule la grille défile, dans son cadre.
+    <main className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4 md:px-10">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h1 className="text-xl leading-tight font-semibold tracking-[-0.01em]">Saisie des disponibilités</h1>
         <span className="text-sm text-graphite">
