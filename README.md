@@ -39,27 +39,35 @@ src/
     login/admin/page.tsx   Connexion administrateur
     api/auth/[...nextauth]/route.ts
     admin/                 Zone ADMIN
-      layout.tsx           Vérifie le rôle côté serveur
-      calendar/            Config, pauses, jours fériés, publication
-      resources/           Liste, import XLS, grille d'une ressource
-      export/route.ts      Téléchargement du JSON
+      layout.tsx           Vérifie le rôle, affiche la barre latérale
+      page.tsx             Redirige vers /admin/calendar
+      calendar/            Configuration (dates, jours, horaires, pauses)
+        holidays/          Jours fériés et publication
+      resources/           Liste des ressources
+        import/            Import XLS des locaux et équipements
+      availability/        Grille d'une ressource (saisie admin)
+      export/              Export JSON
     availability/          Zone USER : sa propre grille
 
   actions/                 Server Actions, un fichier par domaine
     auth.ts                Connexion Google / admin, déconnexion
-    calendar.ts
+    calendar.ts            Enregistrer la configuration du calendrier
     availability.ts
     resource.ts
     import.ts
 
   lib/                     Logique serveur, sans UI
     prisma.ts              Instance Prisma unique
+    calendar.ts            Lecture / écriture du calendrier (unique)
     session.ts             requireAdmin() / requireUser()
     slots.ts               Génération des créneaux (SPEC §6)
     validation/            Règles de validation par domaine (SPEC §10)
+      calendar.ts          Configuration du calendrier (règles 7 à 11)
 
   components/              UI réutilisable
     ui/                    Composants génériques
+    admin/                 Barre latérale de la zone admin
+    calendar/              Étapes, formulaire de configuration
     auth/                  Pages de connexion : formulaire admin, feuille d'exemple
     availability-grid/     La grille, partagée USER / ADMIN
 
