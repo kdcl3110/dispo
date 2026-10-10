@@ -53,24 +53,26 @@ src/
     auth.ts                Connexion Google / admin, déconnexion
     availability.ts        Signaler un créneau (personnel et admin)
     calendar.ts            Configuration, jours retirés, publication
-    resource.ts
+    resource.ts            Ajouter / modifier un local ou un équipement
     import.ts
 
   lib/                     Logique serveur, sans UI
     prisma.ts              Instance Prisma unique
     availability.ts        Créneaux signalés : lire, enregistrer, effacer
     calendar.ts            Lecture / écriture du calendrier (unique)
-    resource.ts            Lecture des ressources
+    resource.ts            Ressources : lecture, création, modification
     session.ts             requireAdmin() / requireUser()
     slots.ts               Créneaux, jours et semaines du calendrier (SPEC §6)
     validation/            Règles de validation par domaine (SPEC §10)
       availability.ts      Créneau signalé (règles 1 à 6)
       calendar.ts          Configuration du calendrier (règles 7 à 11)
+      resource.ts          Local ou équipement (type, nom)
 
   components/              UI réutilisable
     ui/                    Thème Ant Design et fournisseurs (layout racine)
     admin/                 Cadre de la zone admin : barre latérale, contenu
-    calendar/              Étapes, formulaire de configuration
+    calendar/              Étapes, formulaires de configuration et de jours fériés
+    resource/              Tableau des ressources, fenêtre d'ajout / modification
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN
 

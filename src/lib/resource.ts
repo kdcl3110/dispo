@@ -16,6 +16,20 @@ export async function getResource(id: string) {
   return prisma.resource.findUnique({ where: { id } });
 }
 
+// Local ou équipement portant déjà ce nom (sans tenir compte de la casse).
+// Sert à éviter deux « Salle B12 » : l'import ne saurait plus lequel mettre à jour.
+export async function findResourceByName(type: "LOCAL" | "EQUIPMENT", name: string) {
+  return prisma.resource.findFirst({ where: { type, name: { equals: name.trim(), mode: "insensitive" } } });
+}
+
+export async function createResource(input: { type: "LOCAL" | "EQUIPMENT"; name: string }) {
+  return prisma.resource.create({ data: { type: input.type, name: input.name.trim() } });
+}
+
+export async function updateResource(id: string, input: { type: "LOCAL" | "EQUIPMENT"; name: string }) {
+  return prisma.resource.update({ where: { id }, data: { type: input.type, name: input.name.trim() } });
+}
+
 export interface ResourceRow {
   id: string;
   type: ResourceType;
