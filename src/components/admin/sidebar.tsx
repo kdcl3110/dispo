@@ -14,6 +14,7 @@ import {
 import { Button, Layout, Menu, Tooltip, type MenuProps } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useFormStatus } from "react-dom";
 
 import { switchToStaff } from "@/actions/auth";
 import { UserMenu } from "@/components/ui/user-menu";
@@ -74,9 +75,7 @@ export function AdminSidebar({ username }: { username: string }) {
           {/* Symétrique du bouton « Mode administrateur » de l'espace personnel. */}
           <Tooltip title="Quitter le mode administrateur et revenir à vos disponibilités (connexion Google)." placement="right">
             <form action={switchToStaff}>
-              <Button htmlType="submit" icon={<UserOutlined />} block>
-                Espace personnel
-              </Button>
+              <SwitchToStaffButton />
             </form>
           </Tooltip>
 
@@ -90,5 +89,17 @@ export function AdminSidebar({ username }: { username: string }) {
         </div>
       </div>
     </Layout.Sider>
+  );
+}
+
+// Bouton du formulaire ci-dessus. La bascule prend quelques secondes (fermeture
+// de la session admin, puis aller-retour chez Google) : useFormStatus le garde
+// en chargement jusqu'à la redirection, et empêche un second clic.
+function SwitchToStaffButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button htmlType="submit" icon={<UserOutlined />} loading={pending} block>
+      {pending ? "Redirection vers Google…" : "Espace personnel"}
+    </Button>
   );
 }
