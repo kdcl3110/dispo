@@ -4,7 +4,7 @@
 // ouvre le calendrier ; « Nouveau calendrier » ouvre le formulaire dans un
 // panneau, puis mène au calendrier créé.
 
-import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, FolderOpenOutlined, PlusOutlined } from "@ant-design/icons";
 import { App, Button, Drawer, Popconfirm, Table, Tag, Tooltip, type TableColumnsType } from "antd";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -55,13 +55,14 @@ export function CalendarsList({ rows }: { rows: CalendarRow[] }) {
     {
       title: <span className="sr-only">Actions</span>,
       key: "actions",
-      width: 220,
+      // Boutons à icône seule, libellé en infobulle (comme la liste des ressources).
+      width: 100,
       align: "right",
       render: (_, r) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button size="small" href={`/admin/calendars/${r.id}`}>
-            Ouvrir
-          </Button>
+        <div className="flex items-center justify-end gap-1.5">
+          <Tooltip title="Ouvrir">
+            <Button size="small" icon={<FolderOpenOutlined />} aria-label={`Ouvrir ${r.name}`} onClick={() => router.push(`/admin/calendars/${r.id}`)} />
+          </Tooltip>
           <DeleteCalendarButton row={r} />
         </div>
       ),
@@ -121,9 +122,7 @@ function DeleteCalendarButton({ row }: { row: CalendarRow }) {
   if (row.exceptions > 0) {
     return (
       <Tooltip title="Des créneaux ont été signalés : ce calendrier ne peut plus être supprimé.">
-        <Button size="small" danger icon={<DeleteOutlined />} disabled>
-          Supprimer
-        </Button>
+        <Button size="small" danger icon={<DeleteOutlined />} disabled aria-label={`Supprimer ${row.name}`} />
       </Tooltip>
     );
   }
@@ -147,9 +146,9 @@ function DeleteCalendarButton({ row }: { row: CalendarRow }) {
         })
       }
     >
-      <Button size="small" danger icon={<DeleteOutlined />} loading={pending}>
-        Supprimer
-      </Button>
+      <Tooltip title="Supprimer">
+        <Button size="small" danger icon={<DeleteOutlined />} loading={pending} aria-label={`Supprimer ${row.name}`} />
+      </Tooltip>
     </Popconfirm>
   );
 }

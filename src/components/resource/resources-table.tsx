@@ -4,9 +4,8 @@
 // Design : recherche et filtre par type instantanés, tri par colonne, fenêtres
 // d'ajout, de modification et d'import Excel des locaux et équipements.
 
-import { DeleteOutlined, EditOutlined, FileExcelOutlined, PlusOutlined } from "@ant-design/icons";
-import { App, Button, Form, Input, Modal, Popconfirm, Segmented, Select, Table, type TableColumnsType } from "antd";
-import Link from "next/link";
+import { CalendarOutlined, DeleteOutlined, EditOutlined, FileExcelOutlined, PlusOutlined } from "@ant-design/icons";
+import { App, Button, Form, Input, Modal, Popconfirm, Segmented, Select, Table, Tooltip, type TableColumnsType } from "antd";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -48,6 +47,7 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Editing | null>(null);
   const [importing, setImporting] = useState(false);
+  const router = useRouter();
 
   // Recherche sans tenir compte des accents ni des majuscules (« equipe » trouve « Équipe »).
   const q = normalize(query.trim());
@@ -89,18 +89,30 @@ export function ResourcesTable({ rows }: { rows: ResourceRow[] }) {
     {
       title: <span className="sr-only">Actions</span>,
       key: "actions",
-      width: 290,
+      // Boutons à icône seule : le libellé est dans l'infobulle et, pour les
+      // lecteurs d'écran, dans aria-label (avec le nom de la ressource).
+      width: 130,
       align: "right",
       render: (_, r) => (
-        <div className="flex items-center justify-end gap-2">
-          <Link href={`/admin/availability?resource=${r.id}`} className="text-sm font-medium">
-            Voir la grille
-          </Link>
+        <div className="flex items-center justify-end gap-1.5">
+          <Tooltip title="Voir la grille">
+            <Button
+              size="small"
+              icon={<CalendarOutlined />}
+              aria-label={`Voir la grille de ${r.name}`}
+              onClick={() => router.push(`/admin/availability?resource=${r.id}`)}
+            />
+          </Tooltip>
           {r.type !== "PERSON" && (
             <>
-              <Button size="small" icon={<EditOutlined />} onClick={() => setEditing({ id: r.id, type: r.type as EditableResourceType, name: r.name })}>
-                Modifier
-              </Button>
+              <Tooltip title="Modifier">
+                <Button
+                  size="small"
+                  icon={<EditOutlined />}
+                  aria-label={`Modifier ${r.name}`}
+                  onClick={() => setEditing({ id: r.id, type: r.type as EditableResourceType, name: r.name })}
+                />
+              </Tooltip>
               <DeleteButton row={r} />
             </>
           )}
@@ -189,9 +201,9 @@ function DeleteButton({ row }: { row: ResourceRow }) {
       cancelText="Annuler"
       onConfirm={confirm}
     >
-      <Button size="small" danger icon={<DeleteOutlined />} loading={pending}>
-        Supprimer
-      </Button>
+      <Tooltip title="Supprimer">
+        <Button size="small" danger icon={<DeleteOutlined />} loading={pending} aria-label={`Supprimer ${row.name}`} />
+      </Tooltip>
     </Popconfirm>
   );
 }
