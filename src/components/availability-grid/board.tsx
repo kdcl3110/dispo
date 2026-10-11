@@ -58,6 +58,9 @@ export function AvailabilityBoard({
   const [, startTransition] = useTransition();
   const [bulk, setBulk] = useState<"copy" | "reset" | null>(null);
   const [copyOpen, setCopyOpen] = useState(false);
+  // Mode « au clic » : créneaux affichés avec leur nouveau statut mais pas
+  // encore confirmés par le serveur (icône de chargement dans la case).
+  const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
 
   // Semaine modèle de « Appliquer à tout le quadrimestre » : la 1 par défaut,
   // ou la première qui a des jours de cours (un calendrier peut commencer un
@@ -99,11 +102,43 @@ export function AvailabilityBoard({
       message.warning(errors[0].message);
       return;
     }
-    startTransition(async () => {
-      const result = await saveSlot({ calendarId: calendar.id, resourceId, date, start, status: mode, comment: quickComment });
-      if (result.ok) applySaved(result.slots, true);
-      else message.error(result.errors[0]?.message ?? "L'enregistrement a échoué.");
-    });
+    const key = slotKey(date, start);
+    if (saving.has(key)) return;
+
+    // Affichage immédiat du nouveau statut ; retour à l'état d'avant si le
+    // serveur refuse. Plusieurs cases peuvent s'enregistrer en même temps.
+    const previous = exceptions[key];
+    const setCell = (value: ExceptionMap[string] | undefined) =>
+      setExceptions((current) => {
+        const next = { ...current };
+        if (value) next[key] = value;
+        else delete next[key];
+        return next;
+      });
+    const setBusy = (busy: boolean) =>
+      setSaving((current) => {
+        const next = new Set(current);
+        if (busy) next.add(key);
+        else next.delete(key);
+        return next;
+      });
+
+    setCell(mode === "AVAILABLE" ? undefined : { status: mode, comment: quickComment.trim() });
+    setBusy(true);
+    saveSlot({ calendarId: calendar.id, resourceId, date, start, status: mode, comment: quickComment })
+      .then((result) => {
+        if (result.ok) {
+          applySaved(result.slots, true);
+          return;
+        }
+        setCell(previous);
+        message.error(result.errors[0]?.message ?? "L'enregistrement a échoué.");
+      })
+      .catch(() => {
+        setCell(previous);
+        message.error("L'enregistrement a échoué. Vérifiez votre connexion.");
+      })
+      .finally(() => setBusy(false));
   }
 
   // Actions en lot : recopier la semaine modèle, ou tout effacer.
@@ -249,7 +284,7 @@ export function AvailabilityBoard({
         </div>
       </Modal>
 
-      <AvailabilityGrid calendar={calendar} exceptions={exceptions} onSlotClick={handleClick} />
+      <AvailabilityGrid calendar={calendar} exceptions={exceptions} onSlotClick={handleClick} saving={saving} />
 
       {open && (
         <SlotDialog

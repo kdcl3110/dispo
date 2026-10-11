@@ -14,6 +14,8 @@
 //  - stylo rouge     = indisponible
 //  - hachuré         = jour retiré (férié, congé) : pas de créneau
 
+import { LoadingOutlined } from "@ant-design/icons";
+
 import { calendarWeekGrid, generateSlots, slotKey, type BreakRange, type ISODate, type Time } from "@/lib/slots";
 
 export type SlotStatus = "AVAILABLE" | "IF_NEEDED" | "UNAVAILABLE";
@@ -63,10 +65,12 @@ export function AvailabilityGrid({
   calendar,
   exceptions,
   onSlotClick,
+  saving,
 }: {
   calendar: GridCalendar;
   exceptions: ExceptionMap;
   onSlotClick?: (date: ISODate, start: Time) => void;
+  saving?: ReadonlySet<string>; // créneaux en cours d'enregistrement (clés slotKey)
 }) {
   const { days, weeks } = calendarWeekGrid({
     startDate: calendar.startDate,
@@ -160,6 +164,7 @@ export function AvailabilityGrid({
                     }
 
                     const exception = exceptions[slotKey(date, row.start)];
+                    const busy = saving?.has(slotKey(date, row.start)) ?? false;
                     const status: SlotStatus = exception?.status ?? "AVAILABLE";
                     const description = `${longDate.format(utc(date))}, ${row.start}–${row.end} : ${STATUS_LABEL[status]}${exception?.comment ? ` (${exception.comment})` : ""}`;
 
@@ -168,11 +173,14 @@ export function AvailabilityGrid({
                         <button
                           type="button"
                           onClick={() => onSlotClick?.(date, row.start)}
-                          disabled={!onSlotClick}
+                          disabled={!onSlotClick || busy}
                           aria-label={description}
+                          aria-busy={busy || undefined}
                           title={exception?.comment || undefined}
-                          className={`flex h-6 w-full cursor-pointer items-center justify-center rounded-[3px] border text-[11px] font-semibold disabled:cursor-default ${cellClass[status]}`}
+                          className={`flex h-6 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[3px] border text-[11px] font-semibold disabled:cursor-default ${cellClass[status]} ${busy ? "animate-pulse" : ""}`}
                         >
+                          {/* En cours d'enregistrement : la case a déjà sa nouvelle couleur. */}
+                          {busy && <LoadingOutlined aria-hidden="true" className="text-[11px]" />}
                           {status === "IF_NEEDED" && "Si nécessaire"}
                           {status === "UNAVAILABLE" && "Indisponible"}
                         </button>
