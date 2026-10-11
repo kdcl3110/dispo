@@ -75,7 +75,7 @@ src/
   components/              UI réutilisable
     ui/                    Thème Ant Design, fournisseurs, en-tête d'écran, icônes, menu utilisateur, squelettes
     admin/                 Cadre de la zone admin, choix de la ressource
-    calendar/              Calendriers : liste, résumé, panneaux de modification, aperçu des mois
+    calendar/              Calendriers : liste, résumé, panneaux de modification, bilan des créneaux touchés, aperçu des mois
     resource/              Tableau des ressources, fenêtres d'ajout et d'import
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN

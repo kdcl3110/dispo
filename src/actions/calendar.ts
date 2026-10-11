@@ -9,29 +9,71 @@ import {
   countExceptions,
   deleteCalendar,
   getCalendar,
+  listCalendarExceptions,
   publishCalendar,
   replaceHolidays,
   createCalendar,
   updateCalendarConfig,
+  type Calendar,
   type CalendarConfig,
+  type GridChange,
 } from "@/lib/calendar";
 import { requireAdmin } from "@/lib/session";
+import { planGridChange, type GridConfig, type ISODate } from "@/lib/slots";
 import { validateCalendarForm, validateHolidays, type ValidationError } from "@/lib/validation/calendar";
 
 // État renvoyé au formulaire (signature de useActionState).
 // `values` permet de réafficher la saisie : React vide le formulaire après
 // chaque envoi, y compris quand il est refusé.
 export interface CalendarFormState {
-  status: "idle" | "saved" | "invalid";
+  status: "idle" | "saved" | "invalid" | "confirm";
   errors: ValidationError[];
   values?: CalendarConfig;
   calendarId?: string; // après une création : l'identifiant du nouveau calendrier
+  impact?: GridImpact; // status "confirm" : effet sur les créneaux signalés
 }
 
 // État renvoyé au formulaire « Jours fériés et publication ».
 export interface HolidaysFormState {
-  status: "idle" | "saved" | "published" | "invalid";
+  status: "idle" | "saved" | "published" | "invalid" | "confirm";
   errors: ValidationError[];
+  impact?: GridImpact;
+}
+
+// Effet d'une modification sur les créneaux déjà signalés, annoncé avant
+// d'enregistrer. Rien n'est écrit tant que l'admin n'a pas confirmé.
+export interface GridImpact {
+  total: number;
+  kept: number;
+  moved: number;
+  removedDays: number; // jour sorti du calendrier
+  removedTimes: number; // heure qui n'a plus de créneau
+}
+
+// ---------------------------------------------------------------- changement de grille
+
+const gridOf = (calendar: Calendar | (CalendarConfig & { holidays: { date: ISODate }[] })): GridConfig => ({
+  ...calendar,
+  holidays: calendar.holidays.map((h) => h.date),
+});
+
+// Calcule l'effet du passage de `before` à `after` sur les créneaux signalés.
+// `needsConfirm` : au moins un créneau serait déplacé ou supprimé.
+async function planChange(calendarId: string, before: GridConfig, after: GridConfig) {
+  const exceptions = await listCalendarExceptions(calendarId);
+  const plan = planGridChange(before, after, exceptions);
+  const impact: GridImpact = {
+    total: exceptions.length,
+    kept: plan.kept.length,
+    moved: plan.moved.length,
+    removedDays: plan.removed.filter((r) => r.reason === "day").length,
+    removedTimes: plan.removed.filter((r) => r.reason === "time").length,
+  };
+  const change: GridChange = {
+    removedIds: plan.removed.map((r) => r.exception.id),
+    startMap: [...new Map(plan.moved.map((m) => [m.exception.start, m.start])).entries()],
+  };
+  return { impact, change, needsConfirm: plan.moved.length + plan.removed.length > 0 };
 }
 
 // Lit le formulaire. Les pauses arrivent sous la forme breaks.0.name,
@@ -81,20 +123,18 @@ export async function saveCalendar(
   // dans la période (règle 11) : on valide avec ceux déjà enregistrés.
   const errors = validateCalendarForm(values, current?.holidays ?? []);
 
-  // Garde-fou : les créneaux signalés sont rangés par heure de début. Changer
-  // la grille après coup laisserait des signalements sur des créneaux qui
-  // n'existent plus. Tant qu'il y en a, la configuration est figée.
-  if (current && (await countExceptions(current.id)) > 0) {
-    errors.push({
-      field: "form",
-      message: "Des créneaux ont déjà été signalés : la configuration ne peut plus changer.",
-    });
-  }
-
   if (errors.length > 0) return { status: "invalid", errors, values };
 
+  // Créneaux déjà signalés : ils suivent la nouvelle grille quand c'est
+  // possible, sinon ils sont supprimés. L'admin voit le bilan et confirme
+  // (champ « confirmed ») avant toute écriture.
+  if (current) {
+    const { impact, change, needsConfirm } = await planChange(current.id, gridOf(current), gridOf({ ...values, holidays: current.holidays }));
+    if (needsConfirm && formData.get("confirmed") !== "1") return { status: "confirm", errors: [], values, impact };
+    await updateCalendarConfig(current.id, values, change);
+  }
+
   const id = current ? current.id : await createCalendar(values);
-  if (current) await updateCalendarConfig(current.id, values);
   revalidatePath("/", "layout");
   return { status: "saved", errors: [], values, calendarId: id };
 }
@@ -131,18 +171,14 @@ export async function saveHolidays(
   }
 
   const errors = validateHolidays(calendar, holidays);
-
-  // Même garde-fou que pour la configuration : une fois des créneaux signalés,
-  // retirer ou rendre un jour changerait la grille sous leurs pieds.
-  const before = calendar.holidays.map((h) => h.date).sort().join();
-  const after = holidays.map((h) => h.date).sort().join();
-  if (before !== after && (await countExceptions(calendar.id)) > 0) {
-    errors.push({ field: "form", message: "Des créneaux ont déjà été signalés : les jours retirés ne peuvent plus changer." });
-  }
-
   if (errors.length > 0) return { status: "invalid", errors };
 
-  await replaceHolidays(calendar.id, holidays);
+  // Un jour retiré emporte les créneaux qui y étaient signalés : bilan et
+  // confirmation d'abord, comme pour la configuration.
+  const { impact, change, needsConfirm } = await planChange(calendar.id, gridOf(calendar), gridOf({ ...calendar, holidays }));
+  if (needsConfirm && formData.get("confirmed") !== "1") return { status: "confirm", errors: [], impact };
+
+  await replaceHolidays(calendar.id, holidays, change);
   revalidatePath("/", "layout");
   return { status: "saved", errors: [] };
 }

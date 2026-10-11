@@ -9,6 +9,7 @@ import {
   generateSlots,
   holidayPeriods,
   mondayOf,
+  planGridChange,
   unusedMinutes,
   weekDayOf,
 } from "./slots";
@@ -138,5 +139,45 @@ describe("holidayPeriods", () => {
       ["2026-10-26", "2026-11-03", 7, "Congé d'automne"],
       ["2026-11-11", "2026-11-11", 1, "Armistice"],
     ]);
+  });
+});
+
+describe("planGridChange", () => {
+  const before = { ...HE2B, startDate: "2026-09-14", endDate: "2026-12-25", weekDays: MON_FRI, holidays: [] };
+  const exceptions = [
+    { id: "a", date: "2026-09-14", start: "08:00" }, // lundi, 1er créneau
+    { id: "b", date: "2026-09-15", start: "10:30" }, // mardi, 2e créneau
+    { id: "c", date: "2026-11-11", start: "13:30" }, // mercredi, 3e créneau
+  ];
+  const ids = (list: { id: string }[]) => list.map((e) => e.id);
+
+  it("garde tout quand seuls le nom ou la fin de période changent", () => {
+    const plan = planGridChange(before, { ...before, endDate: "2026-12-27" }, exceptions);
+    expect(ids(plan.kept)).toEqual(["a", "b", "c"]);
+    expect(plan.moved).toEqual([]);
+    expect(plan.removed).toEqual([]);
+  });
+
+  it("déplace chaque signalement avec son créneau si les horaires glissent", () => {
+    // Journée décalée de 30 min : toujours 4 créneaux, 08:30, 11:00, 14:00, 16:30.
+    const after = { ...before, dayStart: "08:30", dayEnd: "18:30", breaks: [{ start: "13:00", end: "14:00" }] };
+    const plan = planGridChange(before, after, exceptions);
+    expect(plan.moved.map((m) => [m.exception.id, m.start])).toEqual([["a", "08:30"], ["b", "11:00"], ["c", "14:00"]]);
+    expect(plan.kept).toEqual([]);
+  });
+
+  it("ne garde que les heures exactes si le nombre de créneaux change", () => {
+    // Sans intercours ni pause : 5 créneaux de 2 h, 08:00, 10:00, 12:00, 14:00, 16:00.
+    const after = { ...before, slotGap: 0, breaks: [] };
+    const plan = planGridChange(before, after, exceptions);
+    expect(ids(plan.kept)).toEqual(["a"]);
+    expect(plan.removed.map((r) => [r.exception.id, r.reason])).toEqual([["b", "time"], ["c", "time"]]);
+  });
+
+  it("supprime les signalements des jours qui sortent du calendrier", () => {
+    const after = { ...before, weekDays: ["monday", "wednesday", "thursday", "friday"], holidays: ["2026-11-11"] };
+    const plan = planGridChange(before, after, exceptions);
+    expect(ids(plan.kept)).toEqual(["a"]);
+    expect(plan.removed.map((r) => [r.exception.id, r.reason])).toEqual([["b", "day"], ["c", "day"]]);
   });
 });

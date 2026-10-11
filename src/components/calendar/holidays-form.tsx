@@ -11,6 +11,7 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useState, useTransition } from "react";
 
 import { saveHolidays } from "@/actions/calendar";
+import { confirmGridImpact } from "@/components/calendar/grid-impact";
 import { calendarDays, calendarWeekGrid, holidayPeriods, type ISODate } from "@/lib/slots";
 import { MAX_LABEL_LENGTH, type ValidationError } from "@/lib/validation/calendar";
 
@@ -49,17 +50,15 @@ export function HolidaysForm({
   calendar,
   initialHolidays,
   slotsPerDay,
-  locked,
   onSaved,
 }: {
   calendarId: string;
   calendar: Period;
   initialHolidays: { date: ISODate; label: string | null }[];
   slotsPerDay: number;
-  locked: boolean;
   onSaved?: () => void;
 }) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   // date → nom de la période ("" si sans nom)
   const [holidays, setHolidays] = useState<Record<ISODate, string>>(() =>
     Object.fromEntries(initialHolidays.map((h) => [h.date, h.label ?? ""])),
@@ -99,12 +98,19 @@ export function HolidaysForm({
     });
   }
 
-  function save() {
+  // `confirmed` : second envoi, après acceptation du bilan des créneaux
+  // signalés sur les jours nouvellement retirés.
+  function save(confirmed = false) {
     const data = new FormData();
     data.set("calendarId", calendarId);
     data.set("holidays", JSON.stringify(entries));
+    if (confirmed) data.set("confirmed", "1");
     startTransition(async () => {
       const result = await saveHolidays({ status: "idle", errors: [] }, data);
+      if (result.status === "confirm") {
+        if (result.impact && (await confirmGridImpact(modal, result.impact))) save(true);
+        return;
+      }
       setErrors(result.errors);
       if (result.status === "saved") {
         setSaved(signature(entries));
@@ -145,7 +151,6 @@ export function HolidaysForm({
                       <button
                         type="button"
                         onClick={() => toggle(date)}
-                        disabled={locked}
                         aria-pressed={isRetired}
                         aria-label={`${longDate.format(utc(date))}${isRetired ? ", retiré" : ""}`}
                         className={`flex size-full cursor-pointer flex-col items-center justify-center gap-1 rounded border transition-colors disabled:cursor-not-allowed ${
@@ -189,45 +194,37 @@ export function HolidaysForm({
                     <Typography.Text
                       strong={Boolean(period.label)}
                       type={period.label ? undefined : "secondary"}
-                      editable={
-                        locked
-                          ? false
-                          : {
-                              maxLength: MAX_LABEL_LENGTH,
-                              tooltip: "Renommer",
-                              text: period.label,
-                              onChange: (label) => update(period.dates, label.trim()),
-                            }
-                      }
+                      editable={{
+                        maxLength: MAX_LABEL_LENGTH,
+                        tooltip: "Renommer",
+                        text: period.label,
+                        onChange: (label) => update(period.dates, label.trim()),
+                      }}
                     >
                       {period.label || "Sans nom"}
                     </Typography.Text>
                     <span className="text-[13px] text-graphite">{description}</span>
                   </div>
-                  {!locked && (
-                    <Popconfirm
-                      title="Remettre ces jours dans le calendrier ?"
-                      description={description}
-                      okText="Remettre"
-                      cancelText="Annuler"
-                      onConfirm={() => update(period.dates, null)}
-                    >
-                      <Button type="text" size="small" aria-label={`Remettre dans le calendrier : ${period.label || description}`}>
-                        Remettre
-                      </Button>
-                    </Popconfirm>
-                  )}
+                  <Popconfirm
+                    title="Remettre ces jours dans le calendrier ?"
+                    description={description}
+                    okText="Remettre"
+                    cancelText="Annuler"
+                    onConfirm={() => update(period.dates, null)}
+                  >
+                    <Button type="text" size="small" aria-label={`Remettre dans le calendrier : ${period.label || description}`}>
+                      Remettre
+                    </Button>
+                  </Popconfirm>
                 </li>
               );
             })}
           </ul>
         )}
 
-        {!locked && (
-          <Button onClick={() => setAdding(true)} className="self-start">
-            Ajouter une période
-          </Button>
-        )}
+        <Button onClick={() => setAdding(true)} className="self-start">
+          Ajouter une période
+        </Button>
 
         <p className="text-sm leading-relaxed text-graphite">
           Il reste <strong className="font-semibold text-ink">{remaining} jours de cours</strong> sur {courseDays}, soit{" "}
@@ -239,18 +236,12 @@ export function HolidaysForm({
             <Alert type="error" showIcon title={errors.length === 1 ? errors[0].message : "Ces jours ne peuvent pas être retirés :"} description={errors.length > 1 ? errors.map((e) => <div key={e.message}>{e.message}</div>) : undefined} />
           )}
 
-          {locked ? (
-            <Alert type="info" showIcon title="Des créneaux ont déjà été signalés : les jours retirés ne peuvent plus changer." />
-          ) : (
-            <>
-              {dirty && (
-                <Alert type="warning" showIcon title="Modifications non enregistrées." description="La publication utilise les jours retirés enregistrés." />
-              )}
-              <Button type="primary" size="large" block loading={pending} disabled={!dirty} onClick={save}>
-                Enregistrer les jours retirés
-              </Button>
-            </>
+          {dirty && (
+            <Alert type="warning" showIcon title="Modifications non enregistrées." description="La publication utilise les jours retirés enregistrés." />
           )}
+          <Button type="primary" size="large" block loading={pending} disabled={!dirty} onClick={() => save()}>
+            Enregistrer les jours retirés
+          </Button>
         </div>
       </aside>
 

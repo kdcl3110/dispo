@@ -122,6 +122,39 @@ export async function countExceptions(calendarId: string) {
   return prisma.availability.count({ where: { calendarId } });
 }
 
+// Créneaux signalés du calendrier, toutes ressources confondues : de quoi
+// calculer l'effet d'un changement de grille (planGridChange).
+export async function listCalendarExceptions(calendarId: string) {
+  const rows = await prisma.availability.findMany({ where: { calendarId }, select: { id: true, date: true, start: true } });
+  return rows.map((r) => ({ id: r.id, date: toISODate(r.date), start: r.start }));
+}
+
+// Ce qu'un changement de grille fait aux créneaux signalés : lignes à
+// supprimer, et heures de début à remplacer (ancienne → nouvelle).
+export interface GridChange {
+  removedIds: string[];
+  startMap: [from: Time, to: Time][];
+}
+
+const NO_CHANGE: GridChange = { removedIds: [], startMap: [] };
+
+// Requêtes qui appliquent le changement, à placer dans la transaction de
+// l'écriture du calendrier : tout passe, ou rien.
+// Les heures changent en deux temps (« 10:00 » → « ~10:30 » → « 10:30 ») :
+// sinon, un créneau qui prend l'heure d'un autre pas encore déplacé
+// heurterait la contrainte d'unicité (calendrier, ressource, date, heure).
+function gridChangeQueries(calendarId: string, change: GridChange) {
+  return [
+    prisma.availability.deleteMany({ where: { calendarId, id: { in: change.removedIds } } }),
+    ...change.startMap.map(([from, to]) =>
+      prisma.availability.updateMany({ where: { calendarId, start: from }, data: { start: `~${to}` } }),
+    ),
+    ...change.startMap.map(([, to]) =>
+      prisma.availability.updateMany({ where: { calendarId, start: `~${to}` }, data: { start: to } }),
+    ),
+  ];
+}
+
 // ---------------------------------------------------------------- écriture
 
 function configData(config: CalendarConfig) {
@@ -152,10 +185,11 @@ export async function createCalendar(config: CalendarConfig) {
 // Met à jour la configuration. Les pauses sont remplacées en bloc, dans la
 // même transaction : jamais d'état intermédiaire où le calendrier aurait ses
 // nouvelles heures et ses anciennes pauses.
-export async function updateCalendarConfig(id: string, config: CalendarConfig) {
+export async function updateCalendarConfig(id: string, config: CalendarConfig, change: GridChange = NO_CHANGE) {
   await prisma.$transaction([
     prisma.break.deleteMany({ where: { calendarId: id } }),
     prisma.calendar.update({ where: { id }, data: { ...configData(config), breaks: { create: breaksOf(config) } } }),
+    ...gridChangeQueries(id, change),
   ]);
 }
 
@@ -166,12 +200,17 @@ export async function deleteCalendar(id: string) {
 }
 
 // Remplace en bloc les jours retirés du calendrier.
-export async function replaceHolidays(calendarId: string, holidays: { date: ISODate; label: string | null }[]) {
+export async function replaceHolidays(
+  calendarId: string,
+  holidays: { date: ISODate; label: string | null }[],
+  change: GridChange = NO_CHANGE,
+) {
   await prisma.$transaction([
     prisma.holiday.deleteMany({ where: { calendarId } }),
     prisma.holiday.createMany({
       data: holidays.map((h) => ({ calendarId, date: toDbDate(h.date), label: h.label })),
     }),
+    ...gridChangeQueries(calendarId, change),
   ]);
 }
 

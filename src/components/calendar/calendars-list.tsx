@@ -102,7 +102,6 @@ export function CalendarsList({ rows }: { rows: CalendarRow[] }) {
         <CalendarConfigForm
           initial={null}
           holidays={[]}
-          locked={false}
           onSaved={(id) => {
             setCreating(false);
             router.push(`/admin/calendars/${id}`);

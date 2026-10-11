@@ -211,3 +211,45 @@ export function calendarDays({ startDate, endDate, weekDays, holidays = [] }: Pe
   }
   return days;
 }
+
+// ---------------------------------------------------------------- changement de grille
+
+export type GridConfig = DayConfig & PeriodConfig;
+
+export interface PlannedException<T> {
+  exception: T;
+  start: Time; // heure de début dans la nouvelle grille
+}
+
+// Effet d'un changement de configuration (horaires, période, jours, jours
+// retirés) sur les créneaux déjà signalés. Chaque signalement est :
+//  - gardé tel quel : sa date et son heure existent encore ;
+//  - déplacé : les horaires ont changé mais pas le nombre de créneaux par
+//    jour, il suit son créneau (le 2e reste le 2e : 10:00 → 10:30) ;
+//  - supprimé : son jour ne fait plus partie du calendrier, ou son heure n'a
+//    plus de créneau (le nombre de créneaux par jour a changé).
+export function planGridChange<T extends { date: ISODate; start: Time }>(
+  before: GridConfig,
+  after: GridConfig,
+  exceptions: T[],
+): { kept: T[]; moved: PlannedException<T>[]; removed: { exception: T; reason: "day" | "time" }[] } {
+  const oldStarts = generateSlots(before).map((s) => s.start);
+  const newStarts = generateSlots(after).map((s) => s.start);
+  // Même nombre de créneaux : on suit la position. Sinon, seule l'heure exacte compte.
+  const byPosition = oldStarts.length === newStarts.length;
+  const days = new Set(calendarDays(after));
+
+  const kept: T[] = [];
+  const moved: PlannedException<T>[] = [];
+  const removed: { exception: T; reason: "day" | "time" }[] = [];
+
+  for (const exception of exceptions) {
+    const index = oldStarts.indexOf(exception.start);
+    const start = byPosition && index >= 0 ? newStarts[index] : newStarts.includes(exception.start) ? exception.start : null;
+    if (!days.has(exception.date)) removed.push({ exception, reason: "day" });
+    else if (start === null) removed.push({ exception, reason: "time" });
+    else if (start !== exception.start) moved.push({ exception, start });
+    else kept.push(exception);
+  }
+  return { kept, moved, removed };
+}

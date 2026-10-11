@@ -64,7 +64,6 @@ function describeDays(weekDays: string[]) {
 export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewCalendar; exceptions: number }) {
   const [editing, setEditing] = useState<"config" | "holidays" | null>(null);
   const router = useRouter();
-  const locked = exceptions > 0;
 
   return (
     <>
@@ -73,14 +72,13 @@ export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewC
       <Drawer
         open={editing === "config"}
         onClose={() => setEditing(null)}
-        title={locked ? "Horaires" : "Modifier les horaires"}
+        title="Modifier les horaires"
         size="min(960px, 100vw)"
         destroyOnHidden
       >
         <CalendarConfigForm
           initial={calendar}
           holidays={calendar.holidays}
-          locked={locked}
           onSaved={() => {
             setEditing(null);
             router.refresh();
@@ -104,8 +102,10 @@ export function CalendarOverview({ calendar, exceptions }: { calendar: OverviewC
           calendar={{ startDate: calendar.startDate, endDate: calendar.endDate, weekDays: calendar.weekDays }}
           initialHolidays={calendar.holidays}
           slotsPerDay={generateSlots(calendar).length}
-          locked={locked}
-          onSaved={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            router.refresh(); // le nombre de créneaux signalés a pu changer
+          }}
         />
       </Drawer>
     </>
@@ -127,7 +127,6 @@ function Summary({
   const router = useRouter();
   const [publishing, startTransition] = useTransition();
 
-  const locked = exceptions > 0;
   const slots = generateSlots(calendar);
   const holidayDates = calendar.holidays.map((h) => h.date);
   const days = calendarDays({ ...calendar, holidays: holidayDates }).length;
@@ -138,11 +137,11 @@ function Summary({
     calendar.holidays,
   );
 
-  const nextStep = locked
-    ? `${exceptions} ${exceptions > 1 ? "créneaux ont été signalés" : "créneau a été signalé"} : les horaires et les congés ne peuvent plus changer.`
-    : calendar.publishedAt
-      ? "Le personnel peut signaler ses créneaux. Les horaires et les congés restent modifiables tant que personne n'a rien signalé."
-      : periods.length === 0
+  const nextStep = calendar.publishedAt
+    ? exceptions > 0
+      ? `${exceptions} ${exceptions > 1 ? "créneaux ont été signalés" : "créneau a été signalé"}. Les horaires et les congés restent modifiables : avant d'enregistrer, vous verrez quels créneaux signalés sont gardés, déplacés ou supprimés.`
+      : "Le personnel peut signaler ses créneaux. Les horaires et les congés restent modifiables."
+    : periods.length === 0
         ? "Prochaine étape : retirez les congés et jours fériés, puis publiez le calendrier."
         : "Prochaine étape : vérifiez les horaires et les congés ci-dessous, puis publiez le calendrier.";
 
@@ -160,7 +159,7 @@ function Summary({
 
   const editButton = (what: "config" | "holidays", label: string) => (
     <Button icon={<EditOutlined />} onClick={() => onEdit(what)}>
-      {locked ? "Voir" : label}
+      {label}
     </Button>
   );
 

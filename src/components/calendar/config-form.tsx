@@ -13,6 +13,7 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useState, useTransition } from "react";
 
 import { saveCalendar } from "@/actions/calendar";
+import { confirmGridImpact } from "@/components/calendar/grid-impact";
 import type { CalendarConfig } from "@/lib/calendar";
 import { calendarDays, generateSlots, toMin, unusedMinutes } from "@/lib/slots";
 import {
@@ -119,9 +120,10 @@ function toConfig(values: Partial<FormValues>): CalendarConfig {
 }
 
 // Même format que le <form> d'origine : l'action serveur n'a pas changé.
-function toFormData(config: CalendarConfig, calendarId?: string) {
+function toFormData(config: CalendarConfig, calendarId?: string, confirmed = false) {
   const data = new FormData();
   if (calendarId) data.set("calendarId", calendarId);
+  if (confirmed) data.set("confirmed", "1"); // bilan des créneaux signalés accepté
   data.set("name", config.name);
   data.set("startDate", config.startDate);
   data.set("endDate", config.endDate);
@@ -153,16 +155,14 @@ const timePicker = { format: "HH:mm", minuteStep: 15, needConfirm: false, showNo
 export function CalendarConfigForm({
   initial,
   holidays,
-  locked,
   onSaved,
 }: {
   initial: (CalendarConfig & { id?: string }) | null;
   holidays: { date: string }[];
-  locked: boolean;
   onSaved?: (calendarId: string) => void;
 }) {
   const [form] = Form.useForm<FormValues>();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [initialValues] = useState(() => toValues(initial ?? DEFAULTS));
   const watched = Form.useWatch([], form) as Partial<FormValues> | undefined;
   const config = toConfig(watched ?? initialValues);
@@ -197,8 +197,18 @@ export function CalendarConfigForm({
       showErrors(local);
       return;
     }
+    send(next, false);
+  }
+
+  // `confirmed` : second envoi, après que l'admin a accepté le bilan des
+  // créneaux déjà signalés (déplacés ou supprimés).
+  function send(next: CalendarConfig, confirmed: boolean) {
     startTransition(async () => {
-      const result = await saveCalendar({ status: "idle", errors: [] }, toFormData(next, initial?.id));
+      const result = await saveCalendar({ status: "idle", errors: [] }, toFormData(next, initial?.id, confirmed));
+      if (result.status === "confirm") {
+        if (result.impact && (await confirmGridImpact(modal, result.impact))) send(next, true);
+        return;
+      }
       if (result.status === "invalid") {
         setChecking(true);
         showErrors(result.errors);
@@ -257,7 +267,6 @@ export function CalendarConfigForm({
         form={form}
         layout="vertical"
         requiredMark={false}
-        disabled={locked}
         initialValues={initialValues}
         onFinish={submit}
         onValuesChange={() => checking && revalidate()}
@@ -291,7 +300,7 @@ export function CalendarConfigForm({
           <span className="text-sm text-graphite">
             Horaires HE2B : 4 créneaux de 2 h, intercours de 30 min, pause de midi 12:30–13:30.
           </span>
-          <Button size="small" onClick={applyHe2b} disabled={locked}>
+          <Button size="small" onClick={applyHe2b}>
             Appliquer les horaires HE2B
           </Button>
         </div>
@@ -347,13 +356,9 @@ export function CalendarConfigForm({
         </Form.Item>
 
         <div className="mt-auto flex flex-wrap items-center justify-end gap-3 border-t border-rule pt-5">
-          {locked ? (
-            <Alert type="info" showIcon title="Des créneaux ont déjà été signalés : la configuration ne peut plus changer." className="w-full" />
-          ) : (
-            <Button type="primary" size="large" htmlType="submit" loading={pending}>
-              Enregistrer la configuration
-            </Button>
-          )}
+          <Button type="primary" size="large" htmlType="submit" loading={pending}>
+            Enregistrer la configuration
+          </Button>
         </div>
       </Form>
 

@@ -423,6 +423,7 @@ Comme les slots ne sont plus une table (plus de clé étrangère qui garantit la
 9. La période couvre **15 semaines calendaires au maximum** (voir §6).
 10. `startDate <= endDate`, `weekDays` non vide, `dayStart < dayEnd`.
 11. Chaque date de `holidays` tombe dans `[startDate, endDate]`.
+12. La config et les jours retirés restent modifiables quand des créneaux sont déjà signalés. Chaque créneau signalé est alors **gardé** (sa date et son heure existent encore), **déplacé** (même nombre de créneaux par jour : il suit sa position, le 2ᵉ reste le 2ᵉ) ou **supprimé** (son jour sort du calendrier, ou son heure n'a plus de créneau). Rien n'est écrit avant que l'admin ait confirmé ce bilan ; l'écriture se fait en une transaction.
 
 ---
 
