@@ -5,7 +5,7 @@
 type Mark = "free" | "if-needed" | "unavailable";
 
 const markClass: Record<Mark, string> = {
-  free: "",
+  free: "bg-available",
   "if-needed": "bg-if-needed",
   unavailable: "bg-unavailable",
 };
@@ -49,8 +49,9 @@ export function SampleSheet() {
       {/* Marge rouge : là où s'arrêtent les heures, comme dans un cahier */}
       <div className="absolute inset-y-0 left-24 w-0.5 bg-margin" />
 
-      {weeks.map((week) => (
-        <div key={week.title}>
+      {/* Écran peu haut : une seule semaine suffit à montrer l'idée. */}
+      {weeks.map((week, index) => (
+        <div key={week.title} className={index > 0 ? "short:hidden" : undefined}>
           <div className="flex h-8 items-end pb-1.5 pl-28 text-sm font-semibold">
             {week.title}
           </div>
@@ -86,7 +87,7 @@ export function SampleSheet() {
 // Légende de la feuille : le vocabulaire des statuts, réutilisé partout.
 export function SheetLegend() {
   const items = [
-    { swatch: "border border-field bg-paper", label: "Case vide : disponible" },
+    { swatch: "border border-available-edge bg-available", label: "En vert : disponible" },
     { swatch: "border border-if-needed-edge bg-if-needed", label: "Surligné : si nécessaire" },
     { swatch: "border border-unavailable-edge bg-unavailable", label: "En rouge : indisponible" },
   ];

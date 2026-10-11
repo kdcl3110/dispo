@@ -8,7 +8,8 @@
 // saisie et met à jour les données.
 //
 // Vocabulaire visuel (papier Seyès) :
-//  - case vide       = disponible (valeur par défaut, rien en base)
+//  - vert très clair = disponible (valeur par défaut, rien en base)
+//  - case blanche    = pas de cours ce jour-là (hors période, jour non coché)
 //  - surligné jaune  = si nécessaire
 //  - stylo rouge     = indisponible
 //  - hachuré         = jour retiré (férié, congé) : pas de créneau
@@ -53,7 +54,7 @@ const shortDate = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "sho
 const longDate = new Intl.DateTimeFormat("fr-BE", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
 const cellClass: Record<SlotStatus, string> = {
-  AVAILABLE: "border-[#e1e7f2] bg-paper text-ink hover:border-pen",
+  AVAILABLE: "border-available-edge bg-available text-ink hover:border-pen",
   IF_NEEDED: "border-if-needed-edge bg-if-needed text-if-needed-ink",
   UNAVAILABLE: "border-unavailable-edge bg-unavailable text-white",
 };

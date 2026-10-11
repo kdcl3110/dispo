@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Écrans peu hauts (portable 1366×768, Full HD à 150 %…) : les pages qui ne
+   défilent pas d'habitude resserrent leurs espacements avec short:… */
+@custom-variant short (@media (max-height: 760px));
+
 /*
  * Tokens de l'interface — direction « grille horaire papier » des maquettes.
  * Chaque couleur devient une classe Tailwind : bg-paper, text-ink, border-rule…
@@ -25,6 +29,8 @@
   --color-margin: #e9a3a9;
 
   /* Statuts — uniquement pour les créneaux, jamais en décoration */
+  --color-available: #e8f5ec; /* vert très clair : distinct du papier blanc des cases sans cours */
+  --color-available-edge: #b9dcc4;
   --color-if-needed: #ffe15a; /* surligneur */
   --color-if-needed-edge: #e5c53a;
   --color-if-needed-ink: #3a2f00;

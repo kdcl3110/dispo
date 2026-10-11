@@ -50,15 +50,8 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
   return (
     // La page prend toute la hauteur de la zone de contenu, sans la dépasser :
     // seule la grille défile, dans son cadre.
-    <main className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4 md:px-10">
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h1 className="text-xl leading-tight font-semibold tracking-[-0.01em]">Saisie des disponibilités</h1>
-        <span className="text-sm text-graphite">
-          Pour un local, un équipement ou un membre du personnel.
-          {!calendar.publishedAt && " Ce calendrier n'est pas encore publié : seule l'administration peut saisir."}
-        </span>
-      </div>
-
+    // Le statut du calendrier (brouillon, publié) est affiché dans son sélecteur.
+    <main className="flex min-h-0 flex-1 flex-col px-6 py-4 md:px-10">
       {/* key : changer de calendrier ou de ressource repart d'un état propre. */}
       <AvailabilityBoard
         key={`${calendar.id}-${resource.id}`}
@@ -67,10 +60,13 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
         initialExceptions={initialExceptions}
         totalSlots={days.length * generateSlots(calendar).length}
         quickMarking
-        leading={
+        heading={
           <>
-            <CalendarPicker calendars={calendars} selectedId={calendar.id} />
-            <ResourcePicker resources={resources} selectedId={resource.id} />
+            {/* Titre lu par les lecteurs d'écran ; à l'écran, la barre latérale
+                indique déjà la page et la place va aux sélecteurs. */}
+            <h1 className="sr-only">Saisie des disponibilités</h1>
+            <CalendarPicker inline calendars={calendars} selectedId={calendar.id} />
+            <ResourcePicker inline resources={resources} selectedId={resource.id} />
           </>
         }
       />

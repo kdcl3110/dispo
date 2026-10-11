@@ -16,16 +16,18 @@ const GROUPS = [
 export function ResourcePicker({
   resources,
   selectedId,
+  inline = false,
 }: {
   resources: { id: string; name: string; type: "PERSON" | "LOCAL" | "EQUIPMENT" }[];
   selectedId: string;
+  inline?: boolean; // étiquette à gauche du champ (barres compactes), sinon au-dessus
 }) {
   const router = useRouter();
   const params = useSearchParams();
 
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor="resource-picker" className="text-[13px] font-semibold">
+    <div className={inline ? "flex items-center gap-2" : "flex flex-col gap-1"}>
+      <label htmlFor="resource-picker" className={inline ? "text-[13px] text-graphite" : "text-[13px] font-semibold"}>
         Ressource
       </label>
       <Select
@@ -43,7 +45,7 @@ export function ResourcePicker({
           title: group.label,
           options: resources.filter((r) => r.type === group.type).map((r) => ({ value: r.id, label: r.name })),
         })).filter((group) => group.options.length > 0)}
-        className="w-64!"
+        className={inline ? "w-56!" : "w-64!"}
       />
     </div>
   );

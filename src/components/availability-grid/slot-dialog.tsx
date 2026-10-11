@@ -17,7 +17,7 @@ import { MAX_COMMENT_LENGTH, validateExceptionInput } from "@/lib/validation/ava
 import type { SlotStatus } from "./grid";
 
 const OPTIONS: { value: SlotStatus; title: string; hint: string; swatch: string }[] = [
-  { value: "AVAILABLE", title: "Disponible", hint: "Rien à justifier", swatch: "border border-field bg-paper" },
+  { value: "AVAILABLE", title: "Disponible", hint: "Rien à justifier", swatch: "border border-available-edge bg-available" },
   { value: "IF_NEEDED", title: "Si nécessaire", hint: "À éviter, mais possible", swatch: "border border-if-needed-edge bg-if-needed" },
   { value: "UNAVAILABLE", title: "Indisponible", hint: "Ce créneau ne convient pas", swatch: "border border-unavailable-edge bg-unavailable" },
 ];

@@ -20,8 +20,8 @@ export const theme: ThemeConfig = {
     colorPrimary: pen,
     colorInfo: pen,
     colorLink: pen,
-    // Les confirmations restent dans le bleu de l'encre : pas de vert dans
-    // l'interface, il est réservé à… rien (une case vide = disponible).
+    // Les confirmations restent dans le bleu de l'encre : le vert est réservé
+    // au statut « disponible » de la grille, il ne doit rien signifier d'autre.
     colorSuccess: pen,
     colorError: unavailable,
     colorWarning: "#b7791f",

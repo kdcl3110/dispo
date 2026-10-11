@@ -88,7 +88,19 @@ export function TableSkeleton({ rows = 6 }: { rows?: number }) {
 // lignes Seyès), pour une transition sans saut.
 export function GridSkeleton({ weeks = 15, days = 5, slots = 4 }: { weeks?: number; days?: number; slots?: number }) {
   return (
-    <div className="flex flex-col gap-5">
+    // Mêmes deux lignes que le tableau de saisie (board.tsx) : titre ou
+    // sélecteurs, compteur et « Actions » ; puis légende ou mode « au clic ».
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="flex gap-5">
+          <Bone width={290} height={32} />
+          <Bone width={290} height={32} />
+        </div>
+        <div className="flex items-center gap-3">
+          <Bone width={150} height={14} />
+          <Bone width={100} height={32} />
+        </div>
+      </div>
       <div className="flex flex-wrap items-center gap-7">
         {Array.from({ length: 4 }, (_, i) => (
           <Bone key={i} width={150} height={14} />
@@ -118,7 +130,7 @@ export function GridSkeleton({ weeks = 15, days = 5, slots = 4 }: { weeks?: numb
               </div>
               <div className="flex flex-1 gap-1 py-1 pl-2">
                 {Array.from({ length: weeks }, (_, w) => (
-                  <div key={w} className="h-6 flex-1 rounded-[3px] border border-[#e1e7f2] bg-paper" />
+                  <div key={w} className="h-6 flex-1 rounded-[3px] border border-available-edge bg-available" />
                 ))}
               </div>
             </div>

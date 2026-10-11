@@ -12,17 +12,19 @@ const STATUS = { draft: "Brouillon", published: "Publié", finished: "Terminé" 
 export function CalendarPicker({
   calendars,
   selectedId,
+  inline = false,
 }: {
   calendars: { id: string; name: string; status: keyof typeof STATUS }[];
   selectedId: string;
+  inline?: boolean; // étiquette à gauche du champ (barres compactes), sinon au-dessus
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
 
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor="calendar-picker" className="text-[13px] font-semibold">
+    <div className={inline ? "flex items-center gap-2" : "flex flex-col gap-1"}>
+      <label htmlFor="calendar-picker" className={inline ? "text-[13px] text-graphite" : "text-[13px] font-semibold"}>
         Calendrier
       </label>
       <Select
@@ -46,7 +48,7 @@ export function CalendarPicker({
             </span>
           ),
         }))}
-        className="w-72!"
+        className={inline ? "w-56!" : "w-72!"}
       />
     </div>
   );

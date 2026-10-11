@@ -36,14 +36,14 @@ export default function AdminLoginPage() {
   return (
     <div className="grid flex-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       {/* --- Ce que permet le mode administrateur */}
-      <aside className="hidden flex-col justify-between gap-12 bg-desk px-14 py-14 md:flex">
+      <aside className="hidden flex-col justify-between gap-12 bg-desk px-14 py-14 short:gap-6 short:py-8 md:flex">
         <Logo />
 
         <div className="flex flex-col gap-8">
           <h2 className="max-w-[380px] text-[26px] leading-tight font-semibold tracking-[-0.015em]">
             Préparer le quadrimestre pour tout le personnel.
           </h2>
-          <ul className="flex flex-col gap-5">
+          <ul className="flex flex-col gap-5 short:gap-3">
             {CAPABILITIES.map((c) => (
               <li key={c.title} className="flex items-start gap-4">
                 <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-paper text-lg text-pen">
@@ -62,7 +62,7 @@ export default function AdminLoginPage() {
       </aside>
 
       {/* --- Formulaire */}
-      <main className="flex flex-col gap-10 px-6 py-8 md:px-16 md:py-12">
+      <main className="flex flex-col gap-10 px-6 py-8 short:gap-6 md:px-16 md:py-12 short:md:py-8">
         <div className="flex items-center justify-between gap-6">
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium">
             <ArrowLeftOutlined aria-hidden="true" />
@@ -74,7 +74,7 @@ export default function AdminLoginPage() {
         </div>
 
         <div className="flex flex-1 items-center justify-center">
-          <div className="flex w-full max-w-[400px] flex-col gap-8">
+          <div className="flex w-full max-w-[400px] flex-col gap-8 short:gap-5">
             <div className="flex flex-col gap-4">
               <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-xl bg-pen-tint text-[22px] text-pen">
                 <LockOutlined />

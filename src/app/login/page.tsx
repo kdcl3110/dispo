@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <div className="grid flex-1 md:grid-cols-2">
-      <main className="flex flex-col justify-between gap-16 px-6 py-12 md:px-18 md:py-16">
+      <main className="flex flex-col justify-between gap-16 px-6 py-12 short:gap-8 md:px-18 md:py-16 short:md:py-8">
         <div className="flex flex-col gap-1.5">
           <span className="font-condensed text-[28px] leading-none font-semibold tracking-[-0.01em]">
             dispo
@@ -30,9 +30,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <span className="text-[13px] text-graphite">Haute École Bruxelles-Brabant</span>
         </div>
 
-        <div className="flex flex-col gap-8">
-          <div className="flex flex-col gap-5">
-            <h1 className="max-w-[500px] text-4xl leading-[1.05] font-semibold tracking-[-0.025em] md:text-5xl">
+        <div className="flex flex-col gap-8 short:gap-6">
+          <div className="flex flex-col gap-5 short:gap-4">
+            <h1 className="max-w-[500px] text-4xl leading-[1.05] font-semibold tracking-[-0.025em] md:text-5xl short:md:text-4xl">
               Vos disponibilités pour tout le quadrimestre.
             </h1>
             <p className="max-w-[460px] text-[17px] leading-relaxed text-graphite">
@@ -59,7 +59,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <div />
       </main>
 
-      <aside className="hidden flex-col justify-center gap-7 bg-desk px-16 py-18 md:flex">
+      <aside className="hidden flex-col justify-center gap-7 bg-desk px-16 py-18 short:gap-4 short:py-8 md:flex">
         <SampleSheet />
         <SheetLegend />
       </aside>

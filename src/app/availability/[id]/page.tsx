@@ -48,26 +48,29 @@ export default async function CalendarGridPage({ params }: PageProps<"/availabil
   return (
     // La page prend la hauteur que lui laisse l'en-tête, sans la dépasser :
     // seule la grille défile, dans son cadre.
-    <main className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4 md:px-10">
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        {/* Retour à la liste seulement s'il y en a une (plusieurs calendriers publiés). */}
-        {published.length > 1 && (
-          <Link href="/availability" className="inline-flex items-center gap-1.5 text-sm font-medium">
-            <ArrowLeftOutlined aria-hidden="true" />
-            Mes calendriers
-          </Link>
-        )}
-        <h1 className="text-xl leading-tight font-semibold tracking-[-0.01em]">{calendar.name}</h1>
-        <span className="text-sm text-graphite">
-          Du {format(calendar.startDate)} au {format(calendar.endDate)}. Cliquez sur un créneau pour signaler un problème.
-        </span>
-      </div>
-
+    <main className="flex min-h-0 flex-1 flex-col px-6 py-4 md:px-10">
       <AvailabilityBoard
         resourceId={resource.id}
         calendar={calendar}
         initialExceptions={initialExceptions}
         totalSlots={days.length * generateSlots(calendar).length}
+        heading={
+          <>
+            {/* Retour à la liste seulement s'il y en a une (plusieurs calendriers publiés). */}
+            {published.length > 1 && (
+              <Link href="/availability" className="inline-flex items-center gap-1.5 text-sm font-medium">
+                <ArrowLeftOutlined aria-hidden="true" />
+                Mes calendriers
+              </Link>
+            )}
+            <div className="flex flex-wrap items-baseline gap-x-3">
+              <h1 className="text-xl leading-tight font-semibold tracking-[-0.01em]">{calendar.name}</h1>
+              <span className="text-sm text-graphite">
+                Du {format(calendar.startDate)} au {format(calendar.endDate)}
+              </span>
+            </div>
+          </>
+        }
       />
     </main>
   );

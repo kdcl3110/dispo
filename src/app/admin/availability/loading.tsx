@@ -1,11 +1,10 @@
-// Chargement de la saisie admin : en-tête, sélecteurs, grille.
+// Chargement de la saisie admin : sélecteurs et outils, puis grille.
 
-import { GridSkeleton, HeaderSkeleton, LoadingRegion } from "@/components/ui/skeletons";
+import { GridSkeleton, LoadingRegion } from "@/components/ui/skeletons";
 
 export default function Loading() {
   return (
     <LoadingRegion label="Chargement de la grille…">
-      <HeaderSkeleton />
       <GridSkeleton />
     </LoadingRegion>
   );
