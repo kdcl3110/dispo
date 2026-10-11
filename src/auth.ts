@@ -39,7 +39,9 @@ class AccountLocked extends CredentialsSignin {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
+  // 8 h sans activité et la session expire (30 jours par défaut). Chaque
+  // passage par le proxy la prolonge : on n'est pas déconnecté en plein travail.
+  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
 
   // Notre page remplace celle d'Auth.js, y compris pour les erreurs : un refus
   // Google arrive sur /login?error=AccessDenied.
@@ -145,6 +147,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       } else if (user?.id) {
         token.id = user.id;
         token.role = user.role;
+      } else if (token.id) {
+        // Requêtes suivantes : le token ne fait pas foi à lui seul. Compte
+        // supprimé → session coupée (null) ; rôle changé → appliqué aussitôt.
+        const dbUser = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true } });
+        if (!dbUser) return null;
+        token.role = dbUser.role;
       }
       return token;
     },
