@@ -16,6 +16,43 @@ npm run dev                 # http://localhost:3000
 npm test                    # tests des règles métier (Vitest)
 ```
 
+## Déployer avec Docker
+
+Sur n'importe quel serveur avec Docker : base PostgreSQL, migrations et application, en un seul fichier ([docker-compose.prod.yml](docker-compose.prod.yml)).
+
+1. Copier le dépôt sur le serveur, puis créer un `.env` à côté de `docker-compose.prod.yml` :
+
+   ```bash
+   POSTGRES_PASSWORD=...           # openssl rand -hex 24 (pas de caractères spéciaux : il entre dans une URL)
+   AUTH_SECRET=...                 # openssl rand -base64 33, propre à ce serveur
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   ALLOWED_EMAIL_DOMAINS=he2b.be
+   SEED_ADMIN_USERNAME=dispo
+   SEED_ADMIN_PASSWORD=...         # 12 caractères minimum
+   APP_PORT=3000                   # port publié sur le serveur (3000 par défaut)
+   ```
+
+   `DATABASE_URL` est inutile : le compose la construit. `AUTH_TRUST_HOST` est déjà réglé dans l'image.
+
+2. Lancer, puis créer le compte admin (une seule fois) :
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   docker compose -f docker-compose.prod.yml run --rm migrate npx prisma db seed
+   ```
+
+   Au démarrage, le service `migrate` applique les migrations ; l'application n'attend que sa réussite.
+
+3. Mettre l'application derrière un reverse proxy HTTPS (Caddy, nginx, Traefik…) : Google n'accepte que des adresses `https://` (hors `localhost`). Dans la console Google, ajouter `https://<adresse>/api/auth/callback/google`.
+
+Mise à jour : `git pull` puis la même commande `up -d --build` (les nouvelles migrations passent automatiquement).
+
+Sauvegarde de la base :
+`docker compose -f docker-compose.prod.yml exec db pg_dump -U dispo dispo > dispo-$(date +%F).sql`
+
+> `docker run --env-file .env` garde les guillemets des valeurs (`"…"`) : pour lancer l'image sans compose, écrire le `.env` sans guillemets.
+
 ## Architecture
 
 ### Règle de base
@@ -24,6 +61,10 @@ Chaque domaine métier porte **le même nom dans toutes les couches** :
 `calendar`, `availability`, `resource`, `import`, plus `auth` pour la connexion. Pour une fonctionnalité donnée, on sait où trouver sa page, son action et sa logique.
 
 ```
+Dockerfile                 Image de production (cibles runner et migrate)
+docker-compose.yml         Développement : PostgreSQL seul
+docker-compose.prod.yml    Production : base, migrations, application
+
 prisma/
   schema.prisma            Modèle de données (SPEC §5)
   migrations/              Générées par Prisma, ne pas éditer

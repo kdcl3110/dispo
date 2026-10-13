@@ -1,0 +1,25 @@
+# Rien de tout ceci n'entre dans l'image : secrets, dépendances et sorties de
+# build locales (l'image refait les siennes), fichiers de travail.
+
+# Secrets : les variables arrivent au démarrage du conteneur, jamais dans l'image
+.env*
+!.env.example
+
+# Reconstruits dans l'image
+node_modules
+.next
+src/generated
+*.tsbuildinfo
+next-env.d.ts
+
+# Outils et dépôt
+.git
+.github
+.vscode
+.vercel
+.claude
+uses_cases
+coverage
+npm-debug.log*
+Dockerfile
+docker-compose*.yml

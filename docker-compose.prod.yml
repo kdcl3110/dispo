@@ -1,0 +1,64 @@
+# Production avec Docker : base PostgreSQL, migrations, application.
+# Voir README, « Déployer avec Docker ».
+#
+#   docker compose -f docker-compose.prod.yml up -d --build   (depuis le code source)
+#   docker compose -f docker-compose.prod.yml pull && \
+#   docker compose -f docker-compose.prod.yml up -d --no-build (images publiées, sans le code)
+#
+# Les valeurs viennent du fichier .env posé à côté de ce fichier sur le
+# serveur (jamais versionné, jamais copié dans l'image).
+# docker-compose.yml, lui, ne sert qu'au développement (base seule).
+
+name: dispo-prod
+
+x-database-url: &database-url
+  # Construite ici : l'application parle à la base par le réseau interne.
+  DATABASE_URL: postgresql://${POSTGRES_USER:-dispo}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manque dans .env}@db:5432/${POSTGRES_DB:-dispo}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dispo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manque dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:-dispo}
+    # Pas de « ports » : la base n'est joignable que depuis les autres services.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Applique les migrations puis s'arrête ; l'application attend sa réussite.
+  # Le seed du compte admin passe aussi par ce service (voir README).
+  migrate:
+    build:
+      context: .
+      target: migrate
+    image: ${DISPO_IMAGE:-ghcr.io/kdcl3110/dispo}:migrate
+    env_file: .env
+    environment: *database-url
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: ${DISPO_IMAGE:-ghcr.io/kdcl3110/dispo}:latest
+    restart: unless-stopped
+    env_file: .env
+    environment: *database-url
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
