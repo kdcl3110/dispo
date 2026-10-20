@@ -70,6 +70,7 @@ model Calendar {
   slotGap      Int      @default(0) // intercours entre deux créneaux, en minutes
 
   publishedAt DateTime? // null = brouillon, invisible des USER
+  lockedAt    DateTime? // saisie clôturée par l'admin : le personnel ne peut plus rien modifier
   createdAt   DateTime  @default(now())
 
   breaks         Break[]

@@ -13,13 +13,15 @@ import {
   EditOutlined,
   ExportOutlined,
   InfoCircleOutlined,
+  LockOutlined,
   SendOutlined,
+  UnlockOutlined,
 } from "@ant-design/icons";
 import { App, Button, Drawer, Popconfirm, Tag } from "antd";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { publish } from "@/actions/calendar";
+import { lock, publish } from "@/actions/calendar";
 import type { CalendarConfig } from "@/lib/calendar";
 import { calendarDays, calendarWeekGrid, generateSlots, holidayPeriods, type ISODate } from "@/lib/slots";
 import { formatDuration } from "@/lib/validation/calendar";
@@ -31,6 +33,7 @@ import { MonthOverview } from "./month-overview";
 export interface OverviewCalendar extends CalendarConfig {
   id: string;
   publishedAt: string | null;
+  lockedAt: string | null;
   holidays: { date: ISODate; label: string | null }[];
 }
 
@@ -137,11 +140,13 @@ function Summary({
     calendar.holidays,
   );
 
-  const nextStep = calendar.publishedAt
-    ? exceptions > 0
-      ? `${exceptions} ${exceptions > 1 ? "créneaux ont été signalés" : "créneau a été signalé"}. Les horaires et les congés restent modifiables : avant d'enregistrer, vous verrez quels créneaux signalés sont gardés, déplacés ou supprimés.`
-      : "Le personnel peut signaler ses créneaux. Les horaires et les congés restent modifiables."
-    : periods.length === 0
+  const nextStep = calendar.lockedAt
+    ? `Saisie clôturée le ${fullDate.format(new Date(calendar.lockedAt))} : le personnel voit sa grille mais ne peut plus la modifier. Vous pouvez encore corriger depuis « Saisir des disponibilités », ou rouvrir la saisie.`
+    : calendar.publishedAt
+      ? exceptions > 0
+        ? `${exceptions} ${exceptions > 1 ? "créneaux ont été signalés" : "créneau a été signalé"}. Les horaires et les congés restent modifiables : avant d'enregistrer, vous verrez quels créneaux signalés sont gardés, déplacés ou supprimés. Une fois les disponibilités validées, clôturez la saisie.`
+        : "Le personnel peut signaler ses créneaux. Les horaires et les congés restent modifiables."
+      : periods.length === 0
         ? "Prochaine étape : retirez les congés et jours fériés, puis publiez le calendrier."
         : "Prochaine étape : vérifiez les horaires et les congés ci-dessous, puis publiez le calendrier.";
 
@@ -153,6 +158,18 @@ function Summary({
         return;
       }
       message.success("Calendrier publié. Le personnel peut maintenant signaler ses créneaux.");
+      router.refresh();
+    });
+  }
+
+  function toggleLock(locked: boolean) {
+    startTransition(async () => {
+      const result = await lock({ calendarId: calendar.id, locked });
+      if (result.status !== "saved") {
+        message.error(result.errors[0]?.message ?? "L'opération a échoué.");
+        return;
+      }
+      message.success(locked ? "Saisie clôturée. Le personnel ne peut plus modifier ses disponibilités." : "Saisie rouverte au personnel.");
       router.refresh();
     });
   }
@@ -169,8 +186,8 @@ function Summary({
       <section aria-labelledby="calendar-name" className="flex flex-col gap-4 rounded-xl border border-rule p-5">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="flex flex-col gap-2">
-            <Tag color={calendar.publishedAt ? "blue" : undefined} className="me-0! self-start">
-              {calendar.publishedAt ? "Publié" : "Brouillon, invisible du personnel"}
+            <Tag color={calendar.lockedAt ? "gold" : calendar.publishedAt ? "blue" : undefined} className="me-0! self-start">
+              {calendar.lockedAt ? "Clôturé" : calendar.publishedAt ? "Publié" : "Brouillon, invisible du personnel"}
             </Tag>
             <h2 id="calendar-name" className="text-2xl leading-tight font-semibold tracking-[-0.01em]">
               {calendar.name}
@@ -188,11 +205,36 @@ function Summary({
             <Button icon={<ExportOutlined />} href={`/admin/export?calendar=${calendar.id}`}>
               Exporter
             </Button>
-          {calendar.publishedAt ? (
-            <span className="inline-flex items-center gap-2 text-sm text-pen">
-              <CheckCircleFilled aria-hidden="true" />
-              Publié le {fullDate.format(new Date(calendar.publishedAt))}
-            </span>
+          {calendar.lockedAt ? (
+            <Popconfirm
+              title="Rouvrir la saisie ?"
+              description="Le personnel pourra de nouveau modifier ses disponibilités."
+              okText="Rouvrir"
+              cancelText="Annuler"
+              onConfirm={() => toggleLock(false)}
+            >
+              <Button icon={<UnlockOutlined />} loading={publishing}>
+                Rouvrir la saisie
+              </Button>
+            </Popconfirm>
+          ) : calendar.publishedAt ? (
+            <>
+              <span className="inline-flex items-center gap-2 text-sm text-pen">
+                <CheckCircleFilled aria-hidden="true" />
+                Publié le {fullDate.format(new Date(calendar.publishedAt))}
+              </span>
+              <Popconfirm
+                title="Valider et clôturer la saisie ?"
+                description="Le personnel ne pourra plus modifier ses disponibilités. Vous pourrez rouvrir la saisie plus tard."
+                okText="Clôturer"
+                cancelText="Annuler"
+                onConfirm={() => toggleLock(true)}
+              >
+                <Button type="primary" icon={<LockOutlined />} loading={publishing}>
+                  Valider et clôturer
+                </Button>
+              </Popconfirm>
+            </>
           ) : (
             <Popconfirm
               title="Publier le calendrier ?"

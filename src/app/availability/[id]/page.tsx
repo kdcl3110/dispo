@@ -54,6 +54,7 @@ export default async function CalendarGridPage({ params }: PageProps<"/availabil
         calendar={calendar}
         initialExceptions={initialExceptions}
         totalSlots={days.length * generateSlots(calendar).length}
+        readOnly={calendar.lockedAt !== null}
         heading={
           <>
             {/* Retour à la liste seulement s'il y en a une (plusieurs calendriers publiés). */}

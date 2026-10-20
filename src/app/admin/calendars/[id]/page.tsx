@@ -27,7 +27,11 @@ export default async function CalendarPage({ params }: PageProps<"/admin/calenda
       </Link>
 
       <CalendarOverview
-        calendar={{ ...calendar, publishedAt: calendar.publishedAt?.toISOString() ?? null }}
+        calendar={{
+          ...calendar,
+          publishedAt: calendar.publishedAt?.toISOString() ?? null,
+          lockedAt: calendar.lockedAt?.toISOString() ?? null,
+        }}
         exceptions={exceptions}
       />
     </main>

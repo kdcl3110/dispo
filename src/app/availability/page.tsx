@@ -51,6 +51,7 @@ export default async function MyCalendarsPage() {
           // Semaines affichées dans la grille (sans semaine vide en début ou fin).
           const weeks = calendarWeekGrid({ startDate: c.startDate, endDate: c.endDate, weekDays: c.weekDays }).weeks.length;
           const finished = c.status === "finished";
+          const locked = c.status === "locked";
           return (
             <li key={c.id}>
               <Link
@@ -64,8 +65,8 @@ export default async function MyCalendarsPage() {
                   >
                     <CalendarOutlined />
                   </span>
-                  <Tag color={finished ? undefined : "blue"} className="me-0!">
-                    {finished ? "Terminé" : "Publié"}
+                  <Tag color={locked ? "gold" : finished ? undefined : "blue"} className="me-0!">
+                    {locked ? "Clôturé" : finished ? "Terminé" : "Publié"}
                   </Tag>
                 </div>
 

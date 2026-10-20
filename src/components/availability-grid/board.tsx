@@ -6,16 +6,19 @@
 //
 // Option `quickMarking` (écran admin) : un mode « au clic » où chaque clic
 // applique directement un statut choisi d'avance, sans ouvrir la fenêtre.
+//
+// Option `readOnly` (personnel, calendrier clôturé) : la grille s'affiche
+// sans rien de cliquable. Le serveur refuse de toute façon l'écriture.
 
-import { ClearOutlined, CopyOutlined, DownOutlined } from "@ant-design/icons";
-import { App, Button, Dropdown, Input, Modal, Segmented, Select } from "antd";
+import { ClearOutlined, CopyOutlined, DownOutlined, LockOutlined } from "@ant-design/icons";
+import { Alert, App, Button, Dropdown, Input, Modal, Segmented, Select } from "antd";
 import { useState, useTransition, type ReactNode } from "react";
 
-import { copyWeekToAll, resetAll, saveSlot, type SaveSlotResult, type SlotState } from "@/actions/availability";
-import { calendarWeekGrid, generateSlots, slotKey, type ISODate, type Time } from "@/lib/slots";
+import { copyWeekToAll, resetAll, saveCells, type SaveSlotResult, type SlotState } from "@/actions/availability";
+import { calendarDays, calendarWeekGrid, generateSlots, slotKey, weekDayOf, type ISODate, type Time } from "@/lib/slots";
 import { MAX_COMMENT_LENGTH, validateExceptionInput } from "@/lib/validation/availability";
 
-import { AvailabilityGrid, type ExceptionMap, type GridCalendar, type SlotStatus } from "./grid";
+import { AvailabilityGrid, type Cell, type ExceptionMap, type GridCalendar, type SlotStatus } from "./grid";
 import { AvailabilityLegend } from "./legend";
 import { SlotDialog } from "./slot-dialog";
 
@@ -39,6 +42,7 @@ export function AvailabilityBoard({
   initialExceptions,
   totalSlots,
   quickMarking = false,
+  readOnly = false,
   heading,
 }: {
   resourceId: string;
@@ -46,10 +50,19 @@ export function AvailabilityBoard({
   initialExceptions: ExceptionMap;
   totalSlots: number;
   quickMarking?: boolean;
+  readOnly?: boolean;
   heading?: ReactNode; // début de la première ligne : titre de la page, sélecteurs…
 }) {
   const [exceptions, setExceptions] = useState(initialExceptions);
-  const [selected, setSelected] = useState<{ date: ISODate; start: Time } | null>(null);
+  // `scope` : fenêtre ouverte depuis le nom d'un jour, sur « tous les lundis,
+  // toute la journée ». `range` : ouverte sur une zone glissée. Sinon, sur le
+  // créneau cliqué.
+  const [selected, setSelected] = useState<{
+    date: ISODate;
+    start: Time;
+    scope?: { wholeDay: boolean; weekly: boolean };
+    range?: Cell[];
+  } | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const { message, modal } = App.useApp();
   const [mode, setMode] = useState<ClickMode>("dialog");
@@ -72,7 +85,19 @@ export function AvailabilityBoard({
   const modelCount = Object.keys(exceptions).filter((key) => modelDates.has(key.split("|")[0])).length;
 
   const slots = generateSlots(calendar);
+  const courseDays = calendarDays({ ...calendar, holidays: calendar.holidays.map((h) => h.date) });
   const count = Object.keys(exceptions).length;
+
+  // Clic sur « Lundi » dans la grille : la fenêtre s'ouvre sur tous les lundis,
+  // toute la journée, à partir du premier lundi de cours.
+  function handleDayClick(day: string) {
+    const first = courseDays.find((date) => weekDayOf(date) === day);
+    if (!first || slots.length === 0) {
+      message.info("Aucun jour de cours ce jour de la semaine.");
+      return;
+    }
+    setSelected({ date: first, start: slots[0].start, scope: { wholeDay: true, weekly: true } });
+  }
 
   // `quiet` : en mode « au clic », pas de message à chaque case (la ligne
   // d'état sous la grille suffit).
@@ -90,55 +115,88 @@ export function AvailabilityBoard({
     if (!quiet) message.success(saved.length > 1 ? `${saved.length} créneaux enregistrés.` : "Créneau enregistré.");
   }
 
-  function handleClick(date: ISODate, start: Time) {
-    if (mode === "dialog") {
-      setSelected({ date, start });
-      return;
-    }
-    // Même règle que partout : pas d'exception sans commentaire.
-    const errors = validateExceptionInput({ status: mode, comment: quickComment });
-    if (errors.length > 0) {
-      setCommentMissing(true);
-      message.warning(errors[0].message);
-      return;
-    }
-    const key = slotKey(date, start);
-    if (saving.has(key)) return;
+  // Applique un statut à des cases sans ouvrir la fenêtre (mode « au clic »,
+  // recopie d'une case par glissé). Affichage immédiat du nouveau statut ;
+  // retour à l'état d'avant si le serveur refuse. Plusieurs enregistrements
+  // peuvent avancer en même temps ; une case déjà en cours est laissée de côté.
+  // `quiet` : pas de message de succès (le mode « au clic » en ferait un par case).
+  function applyCells(cells: Cell[], status: SlotStatus, comment: string, quiet: boolean) {
+    const todo = cells.filter((c) => !saving.has(slotKey(c.date, c.start)));
+    if (todo.length === 0) return;
+    const keys = todo.map((c) => slotKey(c.date, c.start));
+    const previous = Object.fromEntries(keys.map((key) => [key, exceptions[key]]));
 
-    // Affichage immédiat du nouveau statut ; retour à l'état d'avant si le
-    // serveur refuse. Plusieurs cases peuvent s'enregistrer en même temps.
-    const previous = exceptions[key];
-    const setCell = (value: ExceptionMap[string] | undefined) =>
+    const setCells = (value: (key: string) => ExceptionMap[string] | undefined) =>
       setExceptions((current) => {
         const next = { ...current };
-        if (value) next[key] = value;
-        else delete next[key];
+        for (const key of keys) {
+          const v = value(key);
+          if (v) next[key] = v;
+          else delete next[key];
+        }
         return next;
       });
     const setBusy = (busy: boolean) =>
       setSaving((current) => {
         const next = new Set(current);
-        if (busy) next.add(key);
-        else next.delete(key);
+        for (const key of keys) {
+          if (busy) next.add(key);
+          else next.delete(key);
+        }
         return next;
       });
 
-    setCell(mode === "AVAILABLE" ? undefined : { status: mode, comment: quickComment.trim() });
+    const optimistic = status === "AVAILABLE" ? undefined : { status, comment: comment.trim() };
+    setCells(() => optimistic);
     setBusy(true);
-    saveSlot({ calendarId: calendar.id, resourceId, date, start, status: mode, comment: quickComment })
+    saveCells({ calendarId: calendar.id, resourceId, cells: todo, status, comment })
       .then((result) => {
         if (result.ok) {
-          applySaved(result.slots, true);
+          applySaved(result.slots, quiet);
           return;
         }
-        setCell(previous);
+        setCells((key) => previous[key]);
         message.error(result.errors[0]?.message ?? "L'enregistrement a échoué.");
       })
       .catch(() => {
-        setCell(previous);
+        setCells((key) => previous[key]);
         message.error("L'enregistrement a échoué. Vérifiez votre connexion.");
       })
       .finally(() => setBusy(false));
+  }
+
+  // Mode « au clic » : même règle que partout, pas d'exception sans commentaire.
+  function quickCommentOk() {
+    const errors = validateExceptionInput({ status: mode, comment: quickComment });
+    if (errors.length === 0) return true;
+    setCommentMissing(true);
+    message.warning(errors[0].message);
+    return false;
+  }
+
+  function handleClick(date: ISODate, start: Time) {
+    if (mode === "dialog") {
+      setSelected({ date, start });
+      return;
+    }
+    if (quickCommentOk()) applyCells([{ date, start }], mode, quickComment, true);
+  }
+
+  // Zone glissée sur la grille, comme dans Excel :
+  //  - mode « au clic » : le statut choisi est peint sur toute la zone ;
+  //  - départ d'une case signalée : son statut et son commentaire sont recopiés ;
+  //  - départ d'une case disponible : la fenêtre s'ouvre pour toute la zone.
+  function handleRange(cells: Cell[], origin: Cell) {
+    if (mode !== "dialog") {
+      if (quickCommentOk()) applyCells(cells, mode, quickComment, true);
+      return;
+    }
+    const source = exceptions[slotKey(origin.date, origin.start)];
+    if (source) {
+      applyCells(cells, source.status, source.comment, false);
+      return;
+    }
+    setSelected({ ...origin, range: cells });
   }
 
   // Actions en lot : recopier la semaine modèle, ou tout effacer.
@@ -163,11 +221,20 @@ export function AvailabilityBoard({
     });
   }
 
+  // Depuis le nom d'un jour ou une zone, la fenêtre part vierge : le statut
+  // d'un seul créneau ne dit rien des autres.
+  const openException =
+    selected && !selected.scope && !selected.range ? exceptions[slotKey(selected.date, selected.start)] : undefined;
   const open = selected && {
-    ...selected,
+    date: selected.date,
+    start: selected.start,
     end: slots.find((s) => s.start === selected.start)?.end ?? selected.start,
-    status: exceptions[slotKey(selected.date, selected.start)]?.status ?? "AVAILABLE",
-    comment: exceptions[slotKey(selected.date, selected.start)]?.comment ?? "",
+    status: openException?.status ?? "AVAILABLE",
+    comment: openException?.comment ?? "",
+  };
+  const openDay = selected && {
+    slots: slots.length,
+    weeks: courseDays.filter((date) => weekDayOf(date) === weekDayOf(selected.date)).length,
   };
 
   const weekOptions = weeks.map((w, i) => ({
@@ -203,20 +270,22 @@ export function AvailabilityBoard({
             sur {totalSlots}
             {savedAt && `, enregistré à ${time.format(savedAt)}`}
           </p>
-          <Dropdown
-            trigger={["click"]}
-            placement="bottomRight"
-            menu={{
-              items: [
-                { key: "copy", icon: <CopyOutlined />, label: "Recopier une semaine…", onClick: () => setCopyOpen(true) },
-                { key: "reset", icon: <ClearOutlined />, label: "Tout remettre à disponible", danger: true, disabled: count === 0, onClick: confirmReset },
-              ],
-            }}
-          >
-            <Button loading={bulk !== null}>
-              Actions <DownOutlined />
-            </Button>
-          </Dropdown>
+          {!readOnly && (
+            <Dropdown
+              trigger={["click"]}
+              placement="bottomRight"
+              menu={{
+                items: [
+                  { key: "copy", icon: <CopyOutlined />, label: "Recopier une semaine…", onClick: () => setCopyOpen(true) },
+                  { key: "reset", icon: <ClearOutlined />, label: "Tout remettre à disponible", danger: true, disabled: count === 0, onClick: confirmReset },
+                ],
+              }}
+            >
+              <Button loading={bulk !== null}>
+                Actions <DownOutlined />
+              </Button>
+            </Dropdown>
+          )}
         </div>
       </div>
 
@@ -260,8 +329,18 @@ export function AvailabilityBoard({
           </div>
           <AvailabilityLegend only="holiday" />
         </div>
+      ) : readOnly ? (
+        <>
+          <Alert
+            type="info"
+            showIcon
+            icon={<LockOutlined />}
+            title="L'administration a validé ce calendrier : vos disponibilités ne sont plus modifiables. Contactez-la pour toute correction."
+          />
+          <AvailabilityLegend />
+        </>
       ) : (
-        <AvailabilityLegend note="Cliquez sur un créneau pour signaler un problème." />
+        <AvailabilityLegend note="Cliquez sur un créneau pour signaler un problème, ou glissez sur plusieurs cases comme dans Excel." />
       )}
 
       <Modal
@@ -284,14 +363,24 @@ export function AvailabilityBoard({
         </div>
       </Modal>
 
-      <AvailabilityGrid calendar={calendar} exceptions={exceptions} onSlotClick={handleClick} saving={saving} />
+      <AvailabilityGrid
+        calendar={calendar}
+        exceptions={exceptions}
+        onSlotClick={readOnly ? undefined : handleClick}
+        onDayClick={readOnly ? undefined : handleDayClick}
+        onRangeSelect={readOnly ? undefined : handleRange}
+        saving={saving}
+      />
 
-      {open && (
+      {open && openDay && (
         <SlotDialog
-          key={slotKey(open.date, open.start)}
+          key={`${slotKey(open.date, open.start)}|${selected?.range ? "range" : selected?.scope ? "day" : "slot"}`}
           calendarId={calendar.id}
           resourceId={resourceId}
           slot={open}
+          day={openDay}
+          initialScope={selected?.scope}
+          range={selected?.range}
           onSaved={applySaved}
           onClose={() => setSelected(null)}
         />

@@ -28,12 +28,15 @@ export interface CalendarConfig {
 export interface Calendar extends CalendarConfig {
   id: string;
   publishedAt: Date | null;
+  lockedAt: Date | null;
   holidays: { date: ISODate; label: string | null }[];
 }
 
 // Brouillon : invisible du personnel. Publié : ouvert à la saisie.
-// Terminé : publié, et sa date de fin est passée.
-export type CalendarStatus = "draft" | "published" | "finished";
+// Clôturé : l'admin a validé les disponibilités, le personnel ne peut plus
+// rien modifier (il voit encore sa grille). Terminé : publié, et sa date de
+// fin est passée.
+export type CalendarStatus = "draft" | "published" | "locked" | "finished";
 
 export interface CalendarRow {
   id: string;
@@ -42,6 +45,7 @@ export interface CalendarRow {
   endDate: ISODate;
   weekDays: string[];
   publishedAt: Date | null;
+  lockedAt: Date | null;
   status: CalendarStatus;
   exceptions: number; // créneaux signalés
 }
@@ -70,13 +74,20 @@ function toCalendar(calendar: DbCalendar): Calendar {
     slotDuration: calendar.slotDuration,
     slotGap: calendar.slotGap,
     publishedAt: calendar.publishedAt,
+    lockedAt: calendar.lockedAt,
     breaks: calendar.breaks.map(({ name, start, end }) => ({ name, start, end })),
     holidays: calendar.holidays.map((h) => ({ date: toISODate(h.date), label: h.label })),
   };
 }
 
-export function statusOf(calendar: { publishedAt: Date | null; endDate: ISODate }, today = toISODate(new Date())): CalendarStatus {
+// La clôture l'emporte sur « terminé » : c'est elle qui dit si le personnel
+// peut encore écrire.
+export function statusOf(
+  calendar: { publishedAt: Date | null; lockedAt: Date | null; endDate: ISODate },
+  today = toISODate(new Date()),
+): CalendarStatus {
   if (!calendar.publishedAt) return "draft";
+  if (calendar.lockedAt) return "locked";
   return calendar.endDate < today ? "finished" : "published";
 }
 
@@ -97,7 +108,7 @@ export async function listCalendars({ publishedOnly = false } = {}): Promise<Cal
     include: { _count: { select: { availabilities: true } } },
   });
   return calendars.map((c) => {
-    const row = { publishedAt: c.publishedAt, endDate: toISODate(c.endDate) };
+    const row = { publishedAt: c.publishedAt, lockedAt: c.lockedAt, endDate: toISODate(c.endDate) };
     return {
       id: c.id,
       name: c.name,
@@ -105,16 +116,18 @@ export async function listCalendars({ publishedOnly = false } = {}): Promise<Cal
       endDate: row.endDate,
       weekDays: c.weekDays,
       publishedAt: c.publishedAt,
+      lockedAt: c.lockedAt,
       status: statusOf(row),
       exceptions: c._count.availabilities,
     };
   });
 }
 
-// Calendrier proposé quand aucun n'est choisi : le publié le plus récent,
-// sinon le plus récent tout court. `rows` vient de listCalendars (déjà trié).
+// Calendrier proposé quand aucun n'est choisi : le publié (ouvert ou clôturé)
+// le plus récent, sinon le plus récent tout court. `rows` vient de
+// listCalendars (déjà trié).
 export function defaultCalendarId(rows: CalendarRow[]) {
-  return (rows.find((r) => r.status === "published") ?? rows[0])?.id;
+  return (rows.find((r) => r.status === "published" || r.status === "locked") ?? rows[0])?.id;
 }
 
 // Nombre de créneaux déjà signalés sur ce calendrier.
@@ -220,5 +233,15 @@ export async function publishCalendar(calendarId: string) {
   await prisma.calendar.updateMany({
     where: { id: calendarId, publishedAt: null },
     data: { publishedAt: new Date() },
+  });
+}
+
+// Clôture la saisie du personnel (l'admin a validé les disponibilités), ou la
+// rouvre. Seul un calendrier publié peut être clôturé ; clôturer deux fois
+// garde la date d'origine.
+export async function setCalendarLock(calendarId: string, locked: boolean) {
+  await prisma.calendar.updateMany({
+    where: locked ? { id: calendarId, publishedAt: { not: null }, lockedAt: null } : { id: calendarId },
+    data: { lockedAt: locked ? new Date() : null },
   });
 }

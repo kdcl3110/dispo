@@ -50,6 +50,7 @@ Règles :
 |---|---|---|
 | Configurer le calendrier (dates, jours, horaires, pauses) | ✗ | ✓ |
 | Déclarer les jours fériés et **publier** le calendrier | ✗ | ✓ |
+| **Clôturer** (ou rouvrir) la saisie du personnel | ✗ | ✓ |
 | Importer locaux & équipements (XLS) | ✗ | ✓ |
 | Gérer les ressources | ✗ | ✓ |
 | Déclarer **ses propres** exceptions de disponibilité | ✓ | ✗ |
@@ -126,6 +127,7 @@ model Calendar {
   slotGap      Int      @default(0)      // intercours entre deux créneaux, en minutes
 
   publishedAt  DateTime?                 // null = brouillon, invisible des USER
+  lockedAt     DateTime?                 // saisie clôturée : les USER ne peuvent plus rien modifier
   createdAt    DateTime @default(now())
 
   breaks         Break[]
@@ -303,6 +305,8 @@ function validateSpan(startDate, endDate) {
 - Les deux statuts d'exception exigent un `comment` non vide (après `trim`). Seul `available` s'en passe — et il n'est jamais écrit.
 - Repasser un créneau à `available` **supprime** la ligne correspondante.
 - Un créneau tombant sur un jour listé dans `holidays`, ou dans une pause, n'existe pas : aucune ligne ne peut y être écrite.
+- Un même statut (et son commentaire) peut s'appliquer en une fois à **un créneau**, à **toute sa journée**, au **même créneau tous les mêmes jours de la semaine**, ou à **tous ces jours, toute la journée** (« indisponible tous les lundis »). Les jours retirés sont exclus ; ce qui était déjà signalé sur ces créneaux est remplacé. Un clic sur le nom d'un jour dans la grille ouvre directement ce dernier cas.
+- Comme dans Excel, on peut **glisser à la souris** sur la grille pour sélectionner un rectangle de cases (semaines × créneaux, jours retirés exclus). Partie d'une case signalée, la sélection en **recopie** le statut et le commentaire ; partie d'une case disponible, elle ouvre la fenêtre de saisie pour toute la zone. En mode « au clic » (admin), le statut choisi est appliqué directement.
 
 ---
 
@@ -413,7 +417,7 @@ Comme les slots ne sont plus une table (plus de clé étrangère qui garantit la
 2. `status = available` ⇒ on **supprime** la ligne au lieu de l'écrire.
 3. `start` reçu ⇒ correspond à une tranche de la grille générée depuis la config, **hors pause**.
 4. `date` reçue ⇒ comprise dans `[startDate, endDate]`, sur un jour listé dans `weekDays`, et **absente de `holidays`**.
-5. Le calendrier est **publié** (`publishedAt != null`) — un `USER` ne peut rien écrire sur un brouillon.
+5. Le calendrier est **publié** (`publishedAt != null`) et **non clôturé** (`lockedAt == null`) — un `USER` ne peut rien écrire sur un brouillon, ni après la clôture. L'`ADMIN` n'est pas concerné par la clôture.
 6. Autorisation : un `USER` ne peut écrire que sur **sa propre** ressource ; un `ADMIN` sur n'importe laquelle, jamais sur la sienne (il n'en a pas).
 
 À l'enregistrement de la config du calendrier :
@@ -466,6 +470,7 @@ Puis en parallèle :
 - Connexion Google **réservée au personnel** (`@he2b.be`). Les étudiants n'ont pas accès à l'application.
 - **Plusieurs calendriers** (quadrimestres, conférences, événements…), chacun de **15 semaines calendaires au maximum**. Le personnel voit **tous les calendriers publiés** ; chaque calendrier a **ses propres** congés, sa publication et ses disponibilités (une exception dans l'un ne compte pas dans les autres). Les ressources sont communes à tous les calendriers. *(Décision du 10 octobre 2026, qui remplace « un seul calendrier partagé ».)*
 - Un calendrier n'est visible des `USER` qu'une fois **publié**.
+- Une fois les disponibilités validées, l'admin **clôture la saisie** (`lockedAt`) : le personnel voit encore sa grille mais ne peut plus la modifier ; l'admin peut encore corriger, et rouvrir la saisie. *(Décision du 13 octobre 2026.)*
 - Les slots sont **dérivés** de la config (pauses et jours fériés déduits), **jamais persistés**.
 - **Tout est disponible par défaut.** `Availability` ne stocke que les exceptions ; `AVAILABLE` n'est jamais écrit et un retour à disponible supprime la ligne.
 - Trois statuts : `available`, `if_needed`, `unavailable`. Commentaire obligatoire pour les deux derniers.

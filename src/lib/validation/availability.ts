@@ -32,6 +32,7 @@ export interface CalendarForValidation {
   breaks: BreakRange[];
   holidays: { date: ISODate }[];
   publishedAt: Date | null;
+  lockedAt: Date | null;
 }
 
 export interface Actor {
@@ -83,6 +84,22 @@ export function validateSlot(calendar: CalendarForValidation, slot: { date: ISOD
   return errors;
 }
 
+// Même contrôle pour une sélection de créneaux (glisser sur la grille) : la
+// grille et les jours ne sont calculés qu'une fois, et chaque motif de refus
+// n'est signalé qu'une fois.
+export function validateSlots(calendar: CalendarForValidation, cells: { date: ISODate; start: Time }[]): ValidationError[] {
+  const starts = new Set(generateSlots(calendar).map((s) => s.start));
+  const days = new Set(calendarDays({ ...calendar, holidays: calendar.holidays.map((h) => h.date) }));
+  const errors: ValidationError[] = [];
+  if (cells.some((c) => !starts.has(c.start))) {
+    errors.push({ field: "slot", message: "Un des créneaux n'existe pas dans la grille du calendrier." });
+  }
+  if (cells.some((c) => !days.has(c.date))) {
+    errors.push({ field: "slot", message: "Un des jours ne fait pas partie du calendrier." });
+  }
+  return errors;
+}
+
 // ---------------------------------------------------------------- règles 5 et 6
 
 // Qui peut écrire sur quelle ressource, et quand. Renvoie null si l'accès est
@@ -90,22 +107,26 @@ export function validateSlot(calendar: CalendarForValidation, slot: { date: ISOD
 export function checkAccess(
   actor: Actor,
   resource: ResourceForValidation,
-  calendar: { publishedAt: Date | null },
+  calendar: { publishedAt: Date | null; lockedAt: Date | null },
 ): ValidationError | null {
   if (actor.role === "USER") {
     // Règle 6 : un membre du personnel n'agit que sur sa propre fiche.
     if (resource.ownerId !== actor.id) {
       return { field: "form", message: "Vous ne pouvez modifier que vos propres disponibilités." };
     }
-    // Règle 5 : rien n'est modifiable avant la publication.
+    // Règle 5 : rien n'est modifiable avant la publication, ni après la clôture.
     if (!calendar.publishedAt) {
       return { field: "form", message: "Le calendrier n'est pas encore publié." };
+    }
+    if (calendar.lockedAt) {
+      return { field: "form", message: "L'administration a clôturé ce calendrier : vos disponibilités ne sont plus modifiables." };
     }
     return null;
   }
 
   // ADMIN : n'importe quelle ressource, jamais la sienne. Il n'en a pas (SPEC
   // §4) ; le contrôle protège contre une fiche qui lui aurait été rattachée.
+  // La clôture ne le concerne pas : il peut encore corriger après validation.
   if (resource.ownerId === actor.id) {
     return { field: "form", message: "Un administrateur ne déclare pas ses propres disponibilités." };
   }

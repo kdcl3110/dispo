@@ -10,9 +10,15 @@ import { addExceptions, clearExceptions, getExceptions, saveSlots } from "@/lib/
 import { getCalendar } from "@/lib/calendar";
 import { getResource } from "@/lib/resource";
 import { requireSession } from "@/lib/session";
-import { calendarDays, calendarWeekGrid, slotKey, weekDayOf, type ISODate, type Time } from "@/lib/slots";
+import { calendarDays, calendarWeekGrid, generateSlots, slotKey, weekDayOf, type ISODate, type Time } from "@/lib/slots";
 import type { ValidationError } from "@/lib/validation/calendar";
-import { checkAccess, validateException, type AvailabilityStatus } from "@/lib/validation/availability";
+import {
+  checkAccess,
+  validateException,
+  validateExceptionInput,
+  validateSlots,
+  type AvailabilityStatus,
+} from "@/lib/validation/availability";
 
 export interface SaveSlotInput {
   calendarId: string;
@@ -21,9 +27,12 @@ export interface SaveSlotInput {
   start: Time;
   status: AvailabilityStatus;
   comment: string;
-  // « Tous les jeudis de 14:00 à 16:00 » : même statut sur chaque date de ce
-  // jour de la semaine (jours retirés exclus).
+  // « Tous les jeudis » : même statut sur chaque date de ce jour de la
+  // semaine (jours retirés exclus).
   repeatWeekly?: boolean;
+  // « Toute la journée » : même statut sur tous les créneaux du jour.
+  // Combiné à repeatWeekly : « tous les jeudis, toute la journée ».
+  wholeDay?: boolean;
 }
 
 // État d'un créneau après l'enregistrement, pour mettre la grille à jour sans
@@ -60,18 +69,21 @@ export async function saveSlot(input: SaveSlotInput): Promise<SaveSlotResult> {
   const errors = validateException({ id: user.id, role: user.role }, resource, calendar, values);
   if (errors.length > 0) return { ok: false, errors };
 
+  // Le créneau cliqué a été validé ; les autres viennent de la grille générée
+  // à partir du même calendrier, ils existent donc forcément.
   const status = values.status as AvailabilityStatus;
   const dates = input.repeatWeekly
     ? calendarDays({ ...calendar, holidays: calendar.holidays.map((h) => h.date) }).filter(
         (date) => weekDayOf(date) === weekDayOf(values.date),
       )
     : [values.date];
+  const starts = input.wholeDay ? generateSlots(calendar).map((s) => s.start) : [values.start];
+  const cells = dates.flatMap((date) => starts.map((start) => ({ date, start })));
 
   await saveSlots({
     calendarId: calendar.id,
     resourceId: resource.id,
-    dates,
-    start: values.start,
+    cells,
     status,
     comment: status === "AVAILABLE" ? "" : values.comment,
     updatedById: user.id,
@@ -81,7 +93,7 @@ export async function saveSlot(input: SaveSlotInput): Promise<SaveSlotResult> {
   revalidatePath("/admin/availability", "layout");
 
   const comment = status === "AVAILABLE" ? "" : values.comment.trim();
-  return { ok: true, slots: dates.map((date) => ({ date, start: values.start, status, comment })) };
+  return { ok: true, slots: cells.map((cell) => ({ ...cell, status, comment })) };
 }
 
 // Charge la ressource et le calendrier, puis vérifie les droits (règles 5 et 6).
@@ -97,6 +109,58 @@ async function loadForWrite(calendarId: unknown, resourceId: unknown) {
   const denied = checkAccess({ id: user.id, role: user.role }, resource, calendar);
   if (denied) return { error: denied };
   return { user, resource, calendar };
+}
+
+// Garde-fou contre un envoi démesuré, avant toute validation. Un calendrier
+// réel (15 semaines × 7 jours × quelques dizaines de créneaux) reste en deçà.
+const MAX_CELLS = 10_000;
+
+// Sélection glissée sur la grille (comme dans Excel) : même statut et même
+// commentaire sur chaque créneau sélectionné. Sert à la fois à la recopie
+// d'une case signalée et à la sélection suivie de la fenêtre.
+export async function saveCells(input: {
+  calendarId: string;
+  resourceId: string;
+  cells: { date: ISODate; start: Time }[];
+  status: AvailabilityStatus;
+  comment: string;
+}): Promise<SaveSlotResult> {
+  const loaded = await loadForWrite(input?.calendarId, input?.resourceId);
+  if ("error" in loaded) return { ok: false, errors: [loaded.error!] };
+  const { user, resource, calendar } = loaded;
+
+  const raw: unknown[] = Array.isArray(input?.cells) ? input.cells.slice(0, MAX_CELLS + 1) : [];
+  if (raw.length === 0 || raw.length > MAX_CELLS) {
+    return { ok: false, errors: [{ field: "form", message: "Sélection vide ou trop grande." }] };
+  }
+  // Doublons retirés : une même case ne s'écrit qu'une fois dans la transaction.
+  const byKey = new Map<string, { date: ISODate; start: Time }>();
+  for (const item of raw) {
+    const cell = item as { date?: unknown; start?: unknown } | null;
+    const parsed = { date: String(cell?.date ?? ""), start: String(cell?.start ?? "") };
+    byKey.set(slotKey(parsed.date, parsed.start), parsed);
+  }
+  const cells = [...byKey.values()];
+
+  const values = { status: String(input?.status ?? ""), comment: String(input?.comment ?? "") };
+  const errors = [...validateExceptionInput(values), ...validateSlots(calendar, cells)];
+  if (errors.length > 0) return { ok: false, errors };
+
+  const status = values.status as AvailabilityStatus;
+  await saveSlots({
+    calendarId: calendar.id,
+    resourceId: resource.id,
+    cells,
+    status,
+    comment: status === "AVAILABLE" ? "" : values.comment,
+    updatedById: user.id,
+  });
+
+  revalidatePath("/availability", "layout");
+  revalidatePath("/admin/availability", "layout");
+
+  const comment = status === "AVAILABLE" ? "" : values.comment.trim();
+  return { ok: true, slots: cells.map((cell) => ({ ...cell, status, comment })) };
 }
 
 // « Appliquer la semaine N à tout le quadrimestre » : recopie les créneaux

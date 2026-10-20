@@ -18,6 +18,7 @@ import { CalendarConfigForm } from "./config-form";
 const STATUS: Record<CalendarStatus, { label: string; color?: string }> = {
   draft: { label: "Brouillon" },
   published: { label: "Publié", color: "blue" },
+  locked: { label: "Clôturé", color: "gold" },
   finished: { label: "Terminé" },
 };
 

@@ -7,6 +7,7 @@ import {
   validateException,
   validateExceptionInput,
   validateSlot,
+  validateSlots,
   type CalendarForValidation,
 } from "./availability";
 
@@ -24,7 +25,10 @@ const calendar: CalendarForValidation = {
   breaks: [{ start: "12:30", end: "13:30" }],
   holidays: [{ date: "2026-11-11" }],
   publishedAt: published,
+  lockedAt: null,
 };
+const draft = { publishedAt: null, lockedAt: null };
+const locked = { publishedAt: published, lockedAt: new Date("2026-12-01T08:00:00Z") };
 
 const user = { id: "u1", role: "USER" as const };
 const admin = { id: "a1", role: "ADMIN" as const };
@@ -67,6 +71,26 @@ describe("validateSlot", () => {
   });
 });
 
+describe("validateSlots", () => {
+  it("accepte une sélection de vrais créneaux", () => {
+    expect(
+      validateSlots(calendar, [
+        { date: "2026-09-14", start: "08:00" },
+        { date: "2026-09-21", start: "10:30" },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("signale une seule fois chaque motif, même sur plusieurs cases", () => {
+    const errors = validateSlots(calendar, [
+      { date: "2026-11-11", start: "08:00" }, // jour retiré
+      { date: "2026-09-19", start: "08:00" }, // samedi
+      { date: "2026-09-14", start: "10:00" }, // pas un début de créneau
+    ]);
+    expect(errors).toHaveLength(2);
+  });
+});
+
 describe("checkAccess", () => {
   it("laisse le personnel modifier sa propre fiche une fois le calendrier publié", () => {
     expect(checkAccess(user, own, calendar)).toBeNull();
@@ -78,11 +102,19 @@ describe("checkAccess", () => {
   });
 
   it("refuse au personnel un calendrier non publié", () => {
-    expect(checkAccess(user, own, { publishedAt: null })).not.toBeNull();
+    expect(checkAccess(user, own, draft)).not.toBeNull();
+  });
+
+  it("refuse au personnel un calendrier clôturé", () => {
+    expect(checkAccess(user, own, locked)?.field).toBe("form");
+  });
+
+  it("laisse l'administrateur corriger un calendrier clôturé", () => {
+    expect(checkAccess(admin, { ownerId: null }, locked)).toBeNull();
   });
 
   it("laisse l'administrateur agir partout, même avant publication", () => {
-    expect(checkAccess(admin, own, { publishedAt: null })).toBeNull();
+    expect(checkAccess(admin, own, draft)).toBeNull();
     expect(checkAccess(admin, { ownerId: null }, calendar)).toBeNull();
   });
 

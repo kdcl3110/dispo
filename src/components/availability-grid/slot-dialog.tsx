@@ -5,11 +5,16 @@
 //
 // Le parent la monte quand on clique sur un créneau et la démonte à la
 // fermeture : chaque ouverture repart donc d'un état propre.
+//
+// Portée : le créneau cliqué, ou le même créneau tous les lundis (case à
+// cocher). Un clic sur le nom du jour dans la grille ouvre la fenêtre sur
+// tous les lundis, toute la journée. Avec `range` (zone glissée sur la
+// grille), la portée est la sélection et la case à cocher disparaît.
 
 import { Alert, Checkbox, Input, Modal, Radio } from "antd";
 import { useState, useTransition } from "react";
 
-import { saveSlot, type SlotState } from "@/actions/availability";
+import { saveCells, saveSlot, type SlotState } from "@/actions/availability";
 import { weekDayOf, type ISODate, type Time } from "@/lib/slots";
 import type { ValidationError } from "@/lib/validation/calendar";
 import { MAX_COMMENT_LENGTH, validateExceptionInput } from "@/lib/validation/availability";
@@ -38,26 +43,43 @@ export function SlotDialog({
   calendarId,
   resourceId,
   slot,
+  day,
+  initialScope = { wholeDay: false, weekly: false },
+  range,
   onSaved,
   onClose,
 }: {
   calendarId: string;
   resourceId: string;
   slot: { date: ISODate; start: Time; end: Time; status: SlotStatus; comment: string };
+  // Nombre de créneaux par jour, et de jours de cours qui tombent ce jour de la semaine.
+  day: { slots: number; weeks: number };
+  initialScope?: { wholeDay: boolean; weekly: boolean };
+  range?: { date: ISODate; start: Time }[];
   onSaved: (slots: SlotState[]) => void;
   onClose: () => void;
 }) {
   // Un créneau disponible s'ouvre sur « Indisponible » : c'est le cas courant.
   const [status, setStatus] = useState<SlotStatus>(slot.status === "AVAILABLE" ? "UNAVAILABLE" : slot.status);
   const [comment, setComment] = useState(slot.comment);
-  const [repeat, setRepeat] = useState(false);
+  const [weekly, setWeekly] = useState(initialScope.weekly);
+  // Toute la journée : seulement depuis le nom du jour (plus de case à cocher,
+  // une zone glissée sur la grille fait mieux).
+  const wholeDay = initialScope.wholeDay;
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [pending, startTransition] = useTransition();
 
   const needsComment = status !== "AVAILABLE";
   const commentError = errors.find((e) => e.field === "comment")?.message;
   const otherErrors = errors.filter((e) => e.field !== "comment");
-  const heading = title.format(new Date(`${slot.date}T00:00:00Z`));
+
+  // Titre selon la portée : « Lundi 14 septembre, 08:00–10:00 », « Tous les
+  // lundis, toute la journée »…
+  const when = weekly ? `Tous les ${PLURAL_DAYS[weekDayOf(slot.date)]}` : title.format(new Date(`${slot.date}T00:00:00Z`));
+  const heading = range
+    ? `${range.length} créneau${range.length > 1 ? "x" : ""} sélectionné${range.length > 1 ? "s" : ""}`
+    : `${when.charAt(0).toUpperCase() + when.slice(1)}, ${wholeDay ? "toute la journée" : `${slot.start}–${slot.end}`}`;
+  const affected = range ? range.length : (weekly ? day.weeks : 1) * (wholeDay ? day.slots : 1);
 
   function submit() {
     const local = validateExceptionInput({ status, comment });
@@ -66,7 +88,18 @@ export function SlotDialog({
       return;
     }
     startTransition(async () => {
-      const result = await saveSlot({ calendarId, resourceId, date: slot.date, start: slot.start, status, comment, repeatWeekly: repeat });
+      const result = range
+        ? await saveCells({ calendarId, resourceId, cells: range, status, comment })
+        : await saveSlot({
+            calendarId,
+            resourceId,
+            date: slot.date,
+            start: slot.start,
+            status,
+            comment,
+            repeatWeekly: weekly,
+            wholeDay,
+          });
       if (result.ok) {
         onSaved(result.slots);
         onClose();
@@ -80,7 +113,7 @@ export function SlotDialog({
     <Modal
       open
       width={560}
-      title={`${heading.charAt(0).toUpperCase() + heading.slice(1)}, ${slot.start}–${slot.end}`}
+      title={heading}
       okText="Enregistrer"
       cancelText="Annuler"
       confirmLoading={pending}
@@ -88,7 +121,9 @@ export function SlotDialog({
       onCancel={onClose}
     >
       <div className="flex flex-col gap-6 pt-2">
-        <p className="text-sm text-graphite">Choisissez le statut de ce créneau.</p>
+        <p className="text-sm text-graphite">
+          {affected > 1 ? `Choisissez le statut de ces ${affected} créneaux.` : "Choisissez le statut de ce créneau."}
+        </p>
 
         {otherErrors.length > 0 && <Alert type="error" showIcon title={otherErrors.map((e) => e.message).join(" ")} />}
 
@@ -139,9 +174,21 @@ export function SlotDialog({
           </p>
         </div>
 
-        <Checkbox checked={repeat} onChange={(e) => setRepeat(e.target.checked)}>
-          Tous les {PLURAL_DAYS[weekDayOf(slot.date)]} de {slot.start} à {slot.end}
-        </Checkbox>
+        {range ? (
+          <p className="text-[13px] text-graphite">Ce qui était déjà signalé sur ces créneaux est remplacé.</p>
+        ) : (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1.5 text-[13px] font-semibold">Appliquer aussi à</legend>
+            <Checkbox checked={weekly} onChange={(e) => setWeekly(e.target.checked)}>
+              Tous les {PLURAL_DAYS[weekDayOf(slot.date)]} du calendrier ({day.weeks} au total, jours retirés exclus)
+            </Checkbox>
+            {affected > 1 && (
+              <p className="text-[13px] text-graphite">
+                {affected} créneaux seront modifiés. Ce qui y était déjà signalé est remplacé.
+              </p>
+            )}
+          </fieldset>
+        )}
       </div>
     </Modal>
   );

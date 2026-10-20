@@ -7,7 +7,8 @@
 import { Select, Tag } from "antd";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-const STATUS = { draft: "Brouillon", published: "Publié", finished: "Terminé" } as const;
+const STATUS = { draft: "Brouillon", published: "Publié", locked: "Clôturé", finished: "Terminé" } as const;
+const COLOR: Partial<Record<keyof typeof STATUS, string>> = { published: "blue", locked: "gold" };
 
 export function CalendarPicker({
   calendars,
@@ -42,7 +43,7 @@ export function CalendarPicker({
           label: (
             <span className="flex items-center justify-between gap-3">
               <span className="truncate">{c.name}</span>
-              <Tag color={c.status === "published" ? "blue" : undefined} className="me-0!">
+              <Tag color={COLOR[c.status]} className="me-0!">
                 {STATUS[c.status]}
               </Tag>
             </span>

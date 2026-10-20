@@ -13,6 +13,7 @@ import {
   publishCalendar,
   replaceHolidays,
   createCalendar,
+  setCalendarLock,
   updateCalendarConfig,
   type Calendar,
   type CalendarConfig,
@@ -196,6 +197,26 @@ export async function publish(input: { calendarId: string }): Promise<HolidaysFo
   await publishCalendar(calendar.id);
   revalidatePath("/", "layout");
   return { status: "published", errors: [] };
+}
+
+// Clôture la saisie une fois les disponibilités validées : le personnel garde
+// sa grille sous les yeux mais ne peut plus rien modifier. L'admin, lui, peut
+// encore corriger. `locked: false` rouvre la saisie.
+export async function lock(input: { calendarId: string; locked: boolean }): Promise<HolidaysFormState> {
+  await requireAdmin();
+
+  const calendar = await getCalendar(String(input?.calendarId ?? ""));
+  if (!calendar) {
+    return { status: "invalid", errors: [{ field: "form", message: "Ce calendrier n'existe plus. Rechargez la page." }] };
+  }
+  const locked = input?.locked === true;
+  if (locked && !calendar.publishedAt) {
+    return { status: "invalid", errors: [{ field: "form", message: "Publiez le calendrier avant de clôturer la saisie." }] };
+  }
+
+  await setCalendarLock(calendar.id, locked);
+  revalidatePath("/", "layout");
+  return { status: "saved", errors: [] };
 }
 
 // Supprime un calendrier créé par erreur. Refusé dès qu'un créneau y a été
