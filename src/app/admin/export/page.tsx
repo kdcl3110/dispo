@@ -22,13 +22,31 @@ import { buildExport, exportFileName, type ExportDocument } from "@/lib/export";
 import { requireAdmin } from "@/lib/session";
 import { calendarDays } from "@/lib/slots";
 
-// Aperçu : la configuration, la grille, puis les deux premières ressources
-// avec trois créneaux chacune au plus. Le fichier, lui, contient tout.
+// Aperçu : la configuration, la grille, puis deux ressources avec trois
+// créneaux chacune au plus. Le fichier, lui, contient tout. On montre en
+// priorité des ressources qui ont des créneaux signalés : les premières par
+// ordre alphabétique (souvent des locaux) n'en ont pas forcément, et l'aperçu
+// laisserait croire que l'export est vide.
+const PREVIEW_RESOURCES = 2;
+const PREVIEW_EXCEPTIONS = 3;
+
 function previewOf(document: ExportDocument) {
+  const signaled = document.resources.filter((r) => r.exceptions.length > 0);
+  const shown = (signaled.length > 0 ? signaled : document.resources).slice(0, PREVIEW_RESOURCES);
   return {
     ...document,
-    resources: document.resources.slice(0, 2).map((r) => ({ ...r, exceptions: r.exceptions.slice(0, 3) })),
+    resources: shown.map((r) => ({ ...r, exceptions: r.exceptions.slice(0, PREVIEW_EXCEPTIONS) })),
   };
+}
+
+// Ce que l'aperçu montre, dit en clair à côté de son titre.
+function previewNote(resources: ExportDocument["resources"]) {
+  const signaled = resources.filter((r) => r.exceptions.length > 0).length;
+  if (resources.length <= PREVIEW_RESOURCES && signaled === resources.length) return null;
+  if (signaled === 0) return "aucun créneau signalé dans ce calendrier";
+  if (signaled === 1) return `la seule ressource qui a des créneaux signalés, ${PREVIEW_EXCEPTIONS} créneaux au plus`;
+  const shown = Math.min(signaled, PREVIEW_RESOURCES);
+  return `${shown} des ${signaled} ressources qui ont des créneaux signalés, ${PREVIEW_EXCEPTIONS} créneaux au plus chacune`;
 }
 
 // Coloration minimale du JSON : clés en bleu, nombres en brique. Le split
@@ -70,6 +88,7 @@ export default async function ExportPage({ searchParams }: PageProps<"/admin/exp
   const days = calendarDays({ ...calendar, holidays: calendar.holidays.map((h) => h.date) }).length;
   const exceptions = resources.reduce((n, r) => n + r.exceptions.length, 0);
   const preview = JSON.stringify(previewOf(document), null, 2);
+  const note = previewNote(resources);
 
   return (
     <main className="flex flex-1 flex-col gap-5 px-6 py-5 md:px-10">
@@ -110,7 +129,7 @@ export default async function ExportPage({ searchParams }: PageProps<"/admin/exp
             label: (
               <span className="font-medium">
                 Voir un aperçu du fichier
-                {resources.length > 2 && <span className="font-normal text-graphite"> (2 premières ressources)</span>}
+                {note && <span className="font-normal text-graphite"> ({note})</span>}
               </span>
             ),
             children: (

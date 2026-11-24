@@ -20,6 +20,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Image Docker : .next/standalone contient un server.js et le strict
+  // nécessaire de node_modules (voir Dockerfile). Sans effet sur Vercel.
+  output: "standalone",
   poweredByHeader: false, // ne pas annoncer « Next.js » aux curieux
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
