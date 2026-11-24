@@ -4,7 +4,8 @@
 import { describe, expect, it, vi } from "vitest";
 import * as XLSX from "xlsx";
 
-import { parseResourceSheet } from "./import";
+import { parseResourceSheet, parseStaffSheet } from "./import";
+import { EMPTY_ROOM } from "./validation/resource";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
@@ -26,12 +27,50 @@ describe("parseResourceSheet", () => {
     );
     expect(result).toEqual({
       rows: [
-        { line: 2, type: "LOCAL", name: "A.201" },
-        { line: 3, type: "EQUIPMENT", name: "Projecteur 3" },
+        { line: 2, type: "LOCAL", name: "A.201", room: EMPTY_ROOM },
+        { line: 3, type: "EQUIPMENT", name: "Projecteur 3", room: EMPTY_ROOM },
       ],
       ignored: [],
       missingColumns: [],
+      roomColumns: [],
     });
+  });
+
+  it("lit la description des locaux", () => {
+    const result = parseResourceSheet(
+      sheet([
+        ["type", "name", "Room type", "capacity", "building", "features"],
+        ["local", "Labo 2.04", "Labo informatique", "30", " Bâtiment A ", "PC (30), Projecteur"],
+        ["local", "B12", "", "", "", ""],
+      ]),
+    );
+    expect(result.roomColumns).toEqual(["room_type", "capacity", "building", "features"]);
+    expect(result.rows[0].room).toEqual({
+      roomType: "Labo informatique",
+      capacity: 30,
+      building: "Bâtiment A",
+      features: [
+        { name: "PC", quantity: 30 },
+        { name: "Projecteur", quantity: 1 },
+      ],
+    });
+    expect(result.rows[1].room).toEqual(EMPTY_ROOM);
+  });
+
+  it("refuse une description sur un équipement, une capacité ou une quantité illisibles", () => {
+    const { rows, ignored } = parseResourceSheet(
+      sheet([
+        ["type", "name", "capacity", "features"],
+        ["equipment", "Projecteur 01", "4", ""],
+        ["local", "B12", "quarante", ""],
+        ["local", "B13", "", "PC (trente)"],
+        ["local", "B14", "0", ""],
+        ["local", "B15", "40", "PC (2), pc"],
+        ["local", "B16", "40", "PC (2)"],
+      ]),
+    );
+    expect(rows.map((r) => r.name)).toEqual(["B16"]);
+    expect(ignored.map((r) => r.line)).toEqual([2, 3, 4, 5, 6]);
   });
 
   it("ignore les lignes vides sans les signaler", () => {
@@ -65,6 +104,56 @@ describe("parseResourceSheet", () => {
   });
 
   it("ne signale rien pour une feuille vide", () => {
-    expect(parseResourceSheet(sheet([]))).toEqual({ rows: [], ignored: [], missingColumns: [] });
+    expect(parseResourceSheet(sheet([]))).toEqual({ rows: [], ignored: [], missingColumns: [], roomColumns: [] });
+  });
+});
+
+describe("parseStaffSheet", () => {
+  const domains = ["he2b.be"];
+
+  it("lit les adresses en minuscules, nom facultatif", () => {
+    const result = parseStaffSheet(
+      sheet([
+        ["Email", "Name"],
+        [" Claire.Mertens@HE2B.be ", " Claire Mertens "],
+        ["jean.dupont@he2b.be", ""],
+        ["", ""],
+      ]),
+      domains,
+    );
+    expect(result).toEqual({
+      rows: [
+        { line: 2, email: "claire.mertens@he2b.be", name: "Claire Mertens" },
+        { line: 3, email: "jean.dupont@he2b.be", name: "" },
+      ],
+      ignored: [],
+      missingColumns: [],
+    });
+  });
+
+  it("refuse les adresses vides, invalides, hors domaine ou en double", () => {
+    const { rows, ignored } = parseStaffSheet(
+      sheet([
+        ["email", "name"],
+        ["", "Sans adresse"],
+        ["pas-une-adresse", ""],
+        ["etudiant@etu.he2b.be", ""],
+        ["perso@gmail.com", ""],
+        ["claire@he2b.be", ""],
+        ["CLAIRE@he2b.be", "Doublon"],
+      ]),
+      domains,
+    );
+    expect(rows.map((r) => r.email)).toEqual(["claire@he2b.be"]);
+    expect(ignored.map((r) => r.line)).toEqual([2, 3, 4, 5, 7]);
+  });
+
+  it("lit aussi un fichier CSV", () => {
+    const csv = new TextEncoder().encode("email;name\nclaire@he2b.be;Claire\n");
+    expect(parseStaffSheet(csv.buffer as ArrayBuffer, domains).rows).toEqual([{ line: 2, email: "claire@he2b.be", name: "Claire" }]);
+  });
+
+  it("signale la colonne email manquante", () => {
+    expect(parseStaffSheet(sheet([["mail"], ["claire@he2b.be"]]), domains).missingColumns).toEqual(["email"]);
   });
 });

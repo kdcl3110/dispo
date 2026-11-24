@@ -38,8 +38,12 @@ model User {
   id   String @id @default(cuid())
   role Role   @default(USER) // découle du provider de connexion
 
-  // Voie Google (personnel HE2B)
-  email String? @unique
+  // Voie Google (personnel HE2B). Le compte est créé par l'admin (import de la
+  // liste du personnel ou ajout à la main) : seule une adresse déjà en base
+  // peut se connecter.
+  email       String?   @unique
+  disabledAt  DateTime? // accès coupé par l'admin, qui peut le rétablir ; null = accès ouvert
+  lastLoginAt DateTime? // dernière connexion Google ; null = jamais connecté
 
   // Voie identifiant / mot de passe (admin, créé par seed)
   username     String? @unique
@@ -111,11 +115,49 @@ model Resource {
   ownerId String? @unique // rempli uniquement pour une PERSON
   owner   User?   @relation(fields: [ownerId], references: [id])
 
+  // Propre aux LOCAL, vide pour une personne ou un équipement (contrainte CHECK
+  // ajoutée dans la migration room_details, et validation applicative).
+  capacity   Int? // nombre de places
+  building   String? // texte libre : « Bâtiment B », « Campus Anderlecht »
+  roomTypeId String?
+  roomType   RoomType?         @relation(fields: [roomTypeId], references: [id], onDelete: Restrict)
+  features   ResourceFeature[]
+
   availabilities Availability[]
 
   // Pas d'unicité : deux membres du personnel peuvent porter le même nom.
   // L'import XLS retrouve un local ou un équipement par (type, name).
   @@index([type, name])
+}
+
+// Types de local (Auditoire, Salle de cours, Labo informatique…). Liste gérée
+// par l'admin, complétée à la volée par le formulaire et l'import.
+// Un type utilisé ne se supprime pas (onDelete: Restrict).
+model RoomType {
+  id        String     @id @default(cuid())
+  name      String     @unique // comparé sans tenir compte de la casse par l'application
+  resources Resource[]
+}
+
+// Caractéristiques fixes d'un local (Projecteur, PC, Accès PMR…). Ce ne sont
+// pas des ressources : elles n'ont pas de disponibilités, elles sont
+// disponibles quand le local l'est. Ce qui se déplace ou se réserve à part
+// est une Resource EQUIPMENT.
+model Feature {
+  id        String            @id @default(cuid())
+  name      String            @unique // comparé sans tenir compte de la casse par l'application
+  resources ResourceFeature[]
+}
+
+// Caractéristique d'un local, avec sa quantité (« PC × 30 »).
+model ResourceFeature {
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  featureId  String
+  feature    Feature  @relation(fields: [featureId], references: [id], onDelete: Restrict)
+  quantity   Int      @default(1)
+
+  @@id([resourceId, featureId])
 }
 
 model Availability {

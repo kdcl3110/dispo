@@ -5,13 +5,14 @@
 import { ResourcesTable } from "@/components/resource/resources-table";
 import { DesktopOutlined, ExclamationCircleOutlined, HomeOutlined, TeamOutlined, UserOutlined } from "@/components/ui/icons";
 import { PageHeader } from "@/components/ui/page-header";
-import { countResourcesByType, listResources } from "@/lib/resource";
+import { countResourcesByType, listCatalog, listResources } from "@/lib/resource";
 import { requireAdmin } from "@/lib/session";
+import { parseAllowedDomains } from "@/lib/validation/resource";
 
 export default async function ResourcesPage() {
   await requireAdmin();
 
-  const [resources, totals] = await Promise.all([listResources(), countResourcesByType()]);
+  const [resources, totals, catalog] = await Promise.all([listResources(), countResourcesByType(), listCatalog()]);
   const signaled = resources.reduce((n, r) => n + r.unavailable + r.ifNeeded, 0);
 
   return (
@@ -28,7 +29,7 @@ export default async function ResourcesPage() {
         ]}
       />
 
-      <ResourcesTable rows={resources} />
+      <ResourcesTable rows={resources} catalog={catalog} domains={parseAllowedDomains(process.env.ALLOWED_EMAIL_DOMAINS)} />
     </main>
   );
 }

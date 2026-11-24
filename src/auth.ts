@@ -4,8 +4,9 @@
 //  - identifiant + mot de passe (Credentials) → ADMIN
 //  - compte Google                            → USER
 //
-// Session en JWT : imposé par le provider Credentials. Pas d'adapter Prisma,
-// les comptes sont lus et créés à la main.
+// Session en JWT : imposé par le provider Credentials. Pas d'adapter Prisma :
+// les comptes sont lus à la main. Ceux du personnel sont créés par l'admin
+// (liste du personnel), ceux des admins par le seed.
 
 import bcrypt from "bcryptjs";
 import NextAuth, { CredentialsSignin } from "next-auth";
@@ -13,18 +14,12 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
 import { prisma } from "@/lib/prisma";
+import { isAllowedEmail, parseAllowedDomains } from "@/lib/validation/resource";
 
-// Domaines acceptés pour la connexion Google, comparés à l'identique :
-// « he2b.be » autorisé n'ouvre PAS « etu.he2b.be » (les étudiants).
-const allowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS ?? "")
-  .split(",")
-  .map((domain) => domain.trim().toLowerCase())
-  .filter(Boolean);
-
-function isAllowedEmail(email: string) {
-  const domain = email.split("@").pop()?.toLowerCase();
-  return domain !== undefined && allowedDomains.includes(domain);
-}
+// Domaines acceptés pour la connexion Google. Garde-fou en plus de la liste
+// du personnel : même présente en base, une adresse d'un autre domaine (ou
+// @etu.he2b.be) est refusée.
+const allowedDomains = parseAllowedDomains(process.env.ALLOWED_EMAIL_DOMAINS);
 
 // Force brute sur la connexion admin : après 5 mauvais mots de passe, le
 // compte est verrouillé 15 minutes. Compté en base, et non en mémoire : sur
@@ -103,31 +98,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    // Contrôle d'accès Google + création du compte à la première connexion.
-    // Refuser ici (return false) bloque la connexion avant toute session.
+    // Contrôle d'accès Google. Le compte n'est plus créé ici : seule une
+    // adresse de la liste du personnel (comptes créés par l'admin), dont
+    // l'accès n'est pas coupé, peut entrer. Refuser ici (return false) bloque
+    // la connexion avant toute session.
     async signIn({ account, profile }) {
       if (account?.provider !== "google") return true;
 
       const email = profile?.email?.toLowerCase();
-      if (!email || !profile?.email_verified || !isAllowedEmail(email)) {
+      if (!email || !profile?.email_verified || !isAllowedEmail(email, allowedDomains)) {
         return false;
       }
 
-      const name = profile.name ?? email;
+      const user = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true, disabledAt: true } });
+      if (!user || user.role !== "USER" || user.disabledAt) return false;
 
-      // Le User et sa Resource PERSON sont créés ensemble (écriture imbriquée,
-      // donc atomique) : un utilisateur Google n'existe jamais sans sa fiche.
-      // Resource.name est une copie de User.name : c'est le seul endroit où
-      // le nom d'une personne change, on y met donc à jour les deux.
-      await prisma.user.upsert({
-        where: { email },
-        update: { name, resource: { update: { name } } },
-        create: {
-          email,
-          name,
-          role: "USER",
-          resource: { create: { type: "PERSON", name } },
-        },
+      // Resource.name est une copie de User.name : à chaque connexion, le nom
+      // donné par Google remplace celui de la liste, sur les deux.
+      const name = profile.name ?? email;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { name, lastLoginAt: new Date(), resource: { update: { name } } },
       });
 
       return true;
@@ -149,9 +140,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
       } else if (token.id) {
         // Requêtes suivantes : le token ne fait pas foi à lui seul. Compte
-        // supprimé → session coupée (null) ; rôle changé → appliqué aussitôt.
-        const dbUser = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true } });
-        if (!dbUser) return null;
+        // supprimé ou accès coupé → session coupée (null) ; rôle changé →
+        // appliqué aussitôt.
+        const dbUser = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true, disabledAt: true } });
+        if (!dbUser || dbUser.disabledAt) return null;
         token.role = dbUser.role;
       }
       return token;

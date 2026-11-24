@@ -37,9 +37,11 @@ Règles :
 
 - **Session en stratégie JWT** (`session: { strategy: "jwt" }`) — obligatoire car le provider Credentials l'impose ; toute l'appli est donc en JWT.
 - Les **mots de passe admin sont hachés** (bcrypt ou argon2), jamais en clair. Les comptes admin sont créés via un **script de seed** (pas d'inscription publique).
-- La connexion Google est **restreinte au domaine** `@he2b.be` (contrôle dans le callback `signIn` d'Auth.js). Tout autre domaine est refusé, **`@etu.he2b.be` compris** : l'application n'est pas ouverte aux étudiants.
-- **Pas d'adapter Prisma** (`@auth/prisma-adapter`). En stratégie JWT il ne servirait qu'à lier les comptes Google, au prix de trois tables (`Account`, `Session`, `VerificationToken`) inutilisées. La création de l'utilisateur et de sa `Resource` se fait à la main dans le callback `signIn`.
-- Un utilisateur Google est **auto-créé** en base à sa première connexion, avec sa fiche `Resource` de type `PERSON` associée.
+- La connexion Google est réservée à la **liste du personnel** tenue par l'admin (contrôle dans le callback `signIn` d'Auth.js) : seule une adresse déjà en base, de rôle `USER` et dont l'accès n'est pas coupé, peut entrer. *(Décision du 23 novembre 2026, qui remplace l'accès ouvert à tout le domaine.)*
+- Le **domaine** `@he2b.be` reste exigé en plus de la liste : tout autre domaine est refusé, **`@etu.he2b.be` compris**, même présent en base. L'admin ne peut d'ailleurs pas inscrire une adresse hors domaine.
+- **Pas d'adapter Prisma** (`@auth/prisma-adapter`). En stratégie JWT il ne servirait qu'à lier les comptes Google, au prix de trois tables (`Account`, `Session`, `VerificationToken`) inutilisées.
+- Le compte d'un membre du personnel est **créé par l'admin**, avec sa fiche `Resource` de type `PERSON` : par import de la liste du personnel (§8) ou ajout à la main. Le nom est facultatif ; à chaque connexion, celui du compte Google le remplace.
+- L'admin peut **couper l'accès** d'un membre du personnel (`disabledAt`) et le **rétablir**. Coupé, il est déconnecté à sa requête suivante (le callback `jwt` relit le compte) et ne peut plus se connecter ; ses créneaux signalés sont gardés et restent dans l'export. Un membre du personnel ne se supprime pas.
 - Le rôle n'est jamais saisi ni modifiable par l'utilisateur : il découle du provider.
 
 ---
@@ -52,12 +54,13 @@ Règles :
 | Déclarer les jours fériés et **publier** le calendrier | ✗ | ✓ |
 | **Clôturer** (ou rouvrir) la saisie du personnel | ✗ | ✓ |
 | Importer locaux & équipements (XLS) | ✗ | ✓ |
+| Inscrire le personnel (import de la liste ou ajout), couper ou rétablir son accès | ✗ | ✓ |
 | Gérer les ressources | ✗ | ✓ |
 | Déclarer **ses propres** exceptions de disponibilité | ✓ | ✗ |
 | Déclarer les exceptions de **n'importe quelle** ressource (local, équipement, autre user) | ✗ | ✓ |
 | Exporter le JSON global | ✗ | ✓ |
 
-L'`ADMIN` ne peut pas renseigner « ses propres » disponibilités parce qu'il n'a **pas de `Resource` de type `PERSON`** : seuls les comptes Google en obtiennent une, à leur première connexion. La contrainte est structurelle, pas seulement applicative — ne pas la casser en donnant une `Resource` à un admin.
+L'`ADMIN` ne peut pas renseigner « ses propres » disponibilités parce qu'il n'a **pas de `Resource` de type `PERSON`** : seuls les comptes du personnel en ont une, créée avec le compte. La contrainte est structurelle, pas seulement applicative — ne pas la casser en donnant une `Resource` à un admin.
 
 Protection des routes via **middleware** Next.js (zone `USER` vs zone `ADMIN`).
 
@@ -98,9 +101,11 @@ model User {
   id           String   @id @default(cuid())
   role         Role     @default(USER)   // découle du provider de connexion
 
-  // Voie Google (utilisateur)
+  // Voie Google (utilisateur), compte créé par l'admin
   email        String?  @unique
   image        String?
+  disabledAt   DateTime?                 // accès coupé par l'admin ; null = accès ouvert
+  lastLoginAt  DateTime?                 // dernière connexion Google ; null = jamais connecté
 
   // Voie identifiant / mot de passe (admin)
   username     String?  @unique
@@ -168,9 +173,38 @@ model Resource {
   ownerId String?      @unique           // rempli uniquement pour une PERSON
   owner   User?        @relation(fields: [ownerId], references: [id])
 
+  // Propre aux LOCAL (vide sinon ; contrainte CHECK en base)
+  capacity   Int?                        // nombre de places
+  building   String?                     // texte libre
+  roomTypeId String?
+  roomType   RoomType?  @relation(fields: [roomTypeId], references: [id], onDelete: Restrict)
+  features   ResourceFeature[]
+
   availabilities Availability[]
 
   @@index([type, name])                  // pas d'unicité : deux personnes peuvent être homonymes
+}
+
+model RoomType {                         // Auditoire, Salle de cours, Labo informatique…
+  id        String     @id @default(cuid())
+  name      String     @unique
+  resources Resource[]
+}
+
+model Feature {                          // Projecteur, PC, Accès PMR… (sans disponibilités)
+  id        String            @id @default(cuid())
+  name      String            @unique
+  resources ResourceFeature[]
+}
+
+model ResourceFeature {                  // caractéristique d'un local, avec sa quantité
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  featureId  String
+  feature    Feature  @relation(fields: [featureId], references: [id], onDelete: Restrict)
+  quantity   Int      @default(1)
+
+  @@id([resourceId, featureId])
 }
 
 model Availability {
@@ -198,11 +232,13 @@ model Availability {
 
 Notes de conception :
 
-- `Resource.name` d'une `PERSON` est une copie de `User.name`, mise à jour à chaque connexion Google (seul endroit où ce nom change).
+- `Resource.name` d'une `PERSON` est une copie de `User.name`. Il vient de la liste du personnel (ou de l'adresse, sans nom) jusqu'à la première connexion, puis du compte Google, recopié à chaque connexion.
 - On stocke la tranche par son **`start`** (colonne stable), pas par un `slotId`. Le `slotId` n'existe que dans la couche d'export (§9).
 - Le champ `calendarId` sur `Availability` rattache la réponse à la config qui lui donne son sens (`start` seul est ambigu sans `slotDuration`).
 - **`Availability` ne contient que des exceptions.** Un créneau sans ligne est disponible. Repasser un créneau à « disponible » **supprime** la ligne ; on n'écrit jamais `status = AVAILABLE`. La valeur reste dans l'enum parce que l'API et le JSON d'export l'emploient (`defaultStatus`), pas parce qu'elle est stockée.
 - Les pauses et les jours fériés vivent sur le `Calendar`, pas sur `Availability` : ils retirent des créneaux de la grille au lieu de porter un statut.
+- **Description des locaux** : capacité, bâtiment (texte libre), type de local et caractéristiques avec quantité, uniquement pour un `LOCAL`. Types et caractéristiques forment deux listes gérées par l'admin ; un nom inconnu (formulaire ou import) y est ajouté, un nom connu est retrouvé sans tenir compte de la casse. Une entrée utilisée ne se supprime pas. *(Décision du 20 octobre 2026.)*
+- Une **caractéristique** est une propriété fixe du local (projecteur au plafond, PC du labo, accès PMR) : elle n'a **pas de disponibilités**, elle est disponible quand le local l'est. Ce qui se déplace ou se réserve à part (projecteur mobile) est une ressource `EQUIPMENT`.
 
 ---
 
@@ -314,13 +350,17 @@ function validateSpan(startDate, endDate) {
 
 L'admin dépose un fichier `.xls` / `.xlsx` → lecture avec SheetJS → validation → création par **upsert** → compte-rendu (créés / mis à jour / ignorés).
 
-Format attendu (première feuille, ligne d'en-tête) :
+Format attendu (première feuille, ligne d'en-tête). `type` et `name` sont obligatoires ; les quatre colonnes suivantes sont facultatives et réservées aux locaux :
 
-| type | name |
-|---|---|
-| local | Salle B12 |
-| local | Auditoire 500 |
-| equipment | Projecteur 01 |
+| type | name | room_type | capacity | building | features |
+|---|---|---|---|---|---|
+| local | Salle B12 | Salle de cours | 40 | Bâtiment B | Projecteur, Tableau blanc |
+| local | Labo 2.04 | Labo informatique | 30 | Bâtiment A | PC (30), Projecteur |
+| equipment | Projecteur 01 | | | | |
+
+- `features` : séparées par des virgules, quantité entre parenthèses (`PC (30)`, `PC x30` est aussi compris).
+- Pour un local déjà connu, les colonnes facultatives **présentes dans le fichier** remplacent sa description (case vide = valeur effacée) ; les colonnes absentes n'y touchent pas.
+- Un type de local ou une caractéristique inconnus sont ajoutés aux listes et cités dans le compte-rendu.
 
 Lecture :
 
@@ -338,7 +378,22 @@ Règles :
 - Refuser un `type` autre que `local` / `equipment`, ou un `name` vide.
 - Ignorer les lignes vides.
 - **Recherche par `(type, name)` puis création ou mise à jour**, dans une transaction → import rejouable sans doublons. Ce n'est pas une contrainte d'unicité en base : elle empêcherait deux membres du personnel homonymes.
-- L'import concerne **uniquement** locaux et équipements. Les personnes sont auto-créées au login Google.
+- Cet import concerne **uniquement** locaux et équipements. Le personnel a le sien, ci-dessous.
+
+### Liste du personnel
+
+Un second import, à part, donne la liste des adresses autorisées à se connecter (`.xls`, `.xlsx` ou `.csv`, première feuille, ligne d'en-tête) :
+
+| email | name |
+|---|---|
+| claire.mertens@he2b.be | Claire Mertens |
+| jean.dupont@he2b.be | |
+
+- `email` est obligatoire, ramené en minuscules ; `name` est facultatif.
+- Refusées : adresse vide ou invalide, hors des domaines autorisés (`@etu.he2b.be` compris), en double dans le fichier, ou d'un compte admin.
+- Recherche par `email`, dans une transaction → rejouable sans doublons. Une adresse inconnue crée un compte `USER` et sa `Resource` `PERSON`. Une adresse connue dont l'accès était coupé **le retrouve** (cité dans le compte-rendu). Le nom du fichier n'est appliqué qu'à un compte jamais connecté.
+- Les comptes **absents du fichier ne sont pas touchés** : couper un accès se fait ligne par ligne dans le tableau des ressources.
+- Compte-rendu : créés / accès rouverts / déjà autorisés / ignorés.
 
 ---
 
@@ -382,6 +437,7 @@ L'export (admin uniquement) rassemble la config du calendrier, la grille **calcu
       "type": "person",
       "name": "Claire Mertens",
       "owner": "claire.mertens@he2b.be",
+      "room": null,
       "exceptions": [
         { "date": "2026-09-14", "slotId": "s1", "status": "unavailable", "comment": "Réunion de département" },
         { "date": "2026-10-05", "slotId": "s4", "status": "if_needed", "comment": "Trajet long, à éviter si possible" }
@@ -392,6 +448,15 @@ L'export (admin uniquement) rassemble la config du calendrier, la grille **calcu
       "type": "local",
       "name": "Salle B12",
       "owner": null,
+      "room": {
+        "roomType": "Salle de cours",
+        "capacity": 40,
+        "building": "Bâtiment B",
+        "features": [
+          { "name": "Projecteur", "quantity": 1 },
+          { "name": "Tableau blanc", "quantity": 1 }
+        ]
+      },
       "exceptions": [
         { "date": "2026-09-14", "slotId": "s1", "status": "unavailable", "comment": "Maintenance du projecteur" }
       ]
@@ -403,6 +468,7 @@ L'export (admin uniquement) rassemble la config du calendrier, la grille **calcu
 - `slots` est **calculé** via `generateSlots(config)` au moment de l'export (pas lu en base), pauses déduites.
 - Le mapping `start` (stocké) → `slotId` (exporté) se fait au moment de l'export, à partir de la grille générée. Les id sont déterministes et stables.
 - `owner` = e-mail pour une `person`, `null` pour local / équipement.
+- `room` = description d'un `local` (chaque champ peut être `null`, `features` peut être vide) ; `null` pour une personne ou un équipement.
 - La clé est `exceptions`, pas `availabilities` : **seules les lignes en base y figurent**. Tout couple (date, slotId) absent vaut `defaultStatus`, donc `available`.
 - `comment` est toujours une chaîne non vide — une exception sans justification n'existe pas.
 - Les dates de `holidays` ne produisent aucun couple (date, slotId) : le consommateur doit les retirer de son propre calcul de la grille.
@@ -438,7 +504,7 @@ DATABASE_URL=postgresql://...
 AUTH_SECRET=...                 # secret Auth.js
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-ALLOWED_EMAIL_DOMAINS=he2b.be
+ALLOWED_EMAIL_DOMAINS=he2b.be     # garde-fou en plus de la liste du personnel
 ```
 
 ---
@@ -467,7 +533,7 @@ Puis en parallèle :
 ## Décisions figées (ne pas réinterpréter)
 
 - Rôles strictement séparés ; le rôle découle du provider. Pas d'adapter Prisma.
-- Connexion Google **réservée au personnel** (`@he2b.be`). Les étudiants n'ont pas accès à l'application.
+- Connexion Google **réservée au personnel inscrit par l'admin** (liste du personnel), en `@he2b.be`. Les étudiants n'ont pas accès à l'application. Un accès se coupe et se rétablit, il ne se supprime pas. *(Décision du 23 novembre 2026.)*
 - **Plusieurs calendriers** (quadrimestres, conférences, événements…), chacun de **15 semaines calendaires au maximum**. Le personnel voit **tous les calendriers publiés** ; chaque calendrier a **ses propres** congés, sa publication et ses disponibilités (une exception dans l'un ne compte pas dans les autres). Les ressources sont communes à tous les calendriers. *(Décision du 10 octobre 2026, qui remplace « un seul calendrier partagé ».)*
 - Un calendrier n'est visible des `USER` qu'une fois **publié**.
 - Une fois les disponibilités validées, l'admin **clôture la saisie** (`lockedAt`) : le personnel voit encore sa grille mais ne peut plus la modifier ; l'admin peut encore corriger, et rouvrir la saisie. *(Décision du 13 octobre 2026.)*
@@ -476,4 +542,4 @@ Puis en parallèle :
 - Trois statuts : `available`, `if_needed`, `unavailable`. Commentaire obligatoire pour les deux derniers.
 - Une exception est identifiée par `(calendar, resource, date, start)`.
 - `slotId` n'existe que dans le JSON d'export, calculé de façon déterministe.
-- Import XLS = locaux + équipements seulement.
+- Import XLS des ressources = locaux + équipements. Le personnel s'importe à part, par sa liste d'adresses.

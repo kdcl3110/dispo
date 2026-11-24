@@ -10,8 +10,9 @@ import { SampleSheet, SheetLegend } from "@/components/auth/sample-sheet";
 
 // Erreurs renvoyées par Auth.js dans l'URL (/login?error=…).
 const errorMessages: Record<string, string> = {
+  // Adresse hors domaine, absente de la liste du personnel, ou accès coupé.
   AccessDenied:
-    "Cette adresse n'est pas acceptée. Connectez-vous avec votre compte @he2b.be.",
+    "Cette adresse n'a pas accès à l'application. Connectez-vous avec votre compte @he2b.be ; s'il est refusé, contactez l'administrateur.",
 };
 const defaultError = "La connexion a échoué. Réessayez.";
 
@@ -49,8 +50,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
               <GoogleButton />
             </form>
             <p className="max-w-[420px] text-sm leading-relaxed text-graphite">
-              Réservé aux adresses <strong className="font-semibold text-ink">@he2b.be</strong>.
-              Votre compte est créé à la première connexion.
+              Réservé au personnel inscrit par l&apos;administrateur, avec son adresse{" "}
+              <strong className="font-semibold text-ink">@he2b.be</strong>.
             </p>
           </div>
         </div>

@@ -49,6 +49,8 @@ export async function buildExport(calendarId: string, exportedBy: string, now = 
   const resources = await prisma.resource.findMany({
     include: {
       owner: { select: { email: true } },
+      roomType: { select: { name: true } },
+      features: { include: { feature: { select: { name: true } } } },
       availabilities: {
         where: { calendarId: calendar.id },
         orderBy: [{ date: "asc" }, { start: "asc" }],
@@ -81,6 +83,18 @@ export async function buildExport(calendarId: string, exportedBy: string, now = 
       type: TYPE[r.type],
       name: r.name,
       owner: r.owner?.email ?? null,
+      // Description d'un local ; null pour une personne ou un équipement.
+      room:
+        r.type === "LOCAL"
+          ? {
+              roomType: r.roomType?.name ?? null,
+              capacity: r.capacity,
+              building: r.building,
+              features: r.features
+                .map((f) => ({ name: f.feature.name, quantity: f.quantity }))
+                .sort((a, b) => a.name.localeCompare(b.name, "fr")),
+            }
+          : null,
       exceptions: r.availabilities
         // Garde-fou : une ligne dont l'heure ne correspond à aucun créneau
         // (impossible tant que la configuration est figée) n'est pas exportée.

@@ -27,7 +27,7 @@ export default async function CalendarGridPage({ params }: PageProps<"/availabil
   // Un brouillon n'existe pas pour le personnel (SPEC §10, règle 5).
   if (!calendar?.publishedAt) notFound();
 
-  // Ne devrait pas arriver : la fiche est créée à la première connexion.
+  // Ne devrait pas arriver : la fiche est créée avec le compte, par l'admin.
   if (!resource) {
     return (
       <main className="flex flex-1 flex-col gap-2 px-6 py-8 md:px-10">

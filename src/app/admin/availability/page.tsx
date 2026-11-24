@@ -30,7 +30,7 @@ export default async function AdminAvailabilityPage({ searchParams }: PageProps<
   if (resources.length === 0) {
     return (
       <Message title="Aucune ressource">
-        Ajoutez ou importez des locaux et équipements, ou attendez la première connexion du personnel.{" "}
+        Importez la liste du personnel, ou ajoutez des locaux et équipements.{" "}
         <Link href="/admin/resources">Aller aux ressources</Link>
       </Message>
     );

@@ -44,7 +44,7 @@ src/
       page.tsx             Redirige vers /admin/calendars
       calendars/           Liste des calendriers, création, suppression
         [id]/              Un calendrier : résumé, horaires, congés, publication
-      resources/           Ressources : liste, ajout, import Excel (même page)
+      resources/           Ressources : liste, ajout, import Excel, accès du personnel (même page)
       availability/        Grille d'une ressource (saisie admin)
       export/              Export JSON : résumé et aperçu
         download/route.ts  Téléchargement du fichier
@@ -55,28 +55,28 @@ src/
     auth.ts                Connexion Google / admin, déconnexion
     availability.ts        Signaler un créneau (personnel et admin)
     calendar.ts            Configuration, jours retirés, publication
-    resource.ts            Ajouter / modifier un local ou un équipement
-    import.ts              Import Excel des locaux et équipements
+    resource.ts            Ajouter / modifier un local ou un équipement, inscrire le personnel, couper son accès
+    import.ts              Import Excel des locaux et équipements, et de la liste du personnel
 
   lib/                     Logique serveur, sans UI
     prisma.ts              Instance Prisma unique
     availability.ts        Créneaux signalés : lire, enregistrer, effacer
     calendar.ts            Lecture / écriture des calendriers
     export.ts              Construction de l'export JSON (SPEC §9)
-    import.ts              Lecture du fichier Excel, création des ressources
-    resource.ts            Ressources : lecture, création, modification
+    import.ts              Lecture des fichiers d'import, création des ressources et des comptes du personnel
+    resource.ts            Ressources : lecture, création, modification, accès du personnel
     session.ts             requireAdmin() / requireUser()
     slots.ts               Créneaux, jours et semaines du calendrier (SPEC §6)
     validation/            Règles de validation par domaine (SPEC §10)
       availability.ts      Créneau signalé (règles 1 à 6)
       calendar.ts          Configuration du calendrier (règles 7 à 11)
-      resource.ts          Local ou équipement (type, nom)
+      resource.ts          Local ou équipement (type, nom), adresse du personnel (domaine)
 
   components/              UI réutilisable
     ui/                    Thème Ant Design, fournisseurs, en-tête d'écran, icônes, menu utilisateur, squelettes
     admin/                 Cadre de la zone admin, choix de la ressource
     calendar/              Calendriers : liste, résumé, panneaux de modification, bilan des créneaux touchés, aperçu des mois
-    resource/              Tableau des ressources, fenêtres d'ajout et d'import
+    resource/              Tableau des ressources, fenêtres d'ajout et d'import (ressources, liste du personnel), listes (types de local, caractéristiques)
     auth/                  Pages de connexion : bouton Google, formulaire admin, feuille d'exemple
     availability-grid/     La grille et sa légende, partagées USER / ADMIN
 
